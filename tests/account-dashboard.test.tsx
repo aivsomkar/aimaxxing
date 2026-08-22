@@ -8,6 +8,8 @@ const empty = {
   state: 'private-empty' as const,
   publicOptIn: false,
   usageCount: 0,
+  connectedReporterCount: 0,
+  reporters: [],
   projectCount: 0,
   githubSyncedAt: null,
   canPublish: false,

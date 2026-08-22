@@ -45,8 +45,8 @@ function dependencies(overrides: Partial<CliDependencies> = {}) {
       pollLink: vi.fn(async () => ({
         status: 'approved' as const, reporterId: config.reporterId, handle: config.handle,
       })),
-      submitReport: vi.fn(async () => ({ ok: true, accepted: 1, submissionId: 'submission-test-1' })),
-      revokeReporter: vi.fn(async () => ({ ok: true })),
+      submitReport: vi.fn(async () => ({ ok: true as const, accepted: 1, submissionId: 'submission-test-1' })),
+      revokeReporter: vi.fn(async () => ({ ok: true as const })),
     },
     stdout: (line) => output.push(line),
     stderr: (line) => output.push(line),

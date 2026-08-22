@@ -50,8 +50,13 @@ export function AccountDashboard({
             Manage websites
           </Link>
         </Step>
-        <Step number="03" title="Connect AI usage" complete={status.usageCount > 0}>
-          <span>{status.usageCount === 1 ? '1 usage entry' : `${status.usageCount} usage entries`}. </span>
+        <Step number="03" title="Connect AI usage" complete={status.usageCount > 0 || status.connectedReporterCount > 0}>
+          <span>
+            {status.usageCount === 1 ? '1 usage entry' : `${status.usageCount} usage entries`}
+            {status.connectedReporterCount > 0
+              ? ` from ${status.connectedReporterCount === 1 ? '1 linked reporter' : `${status.connectedReporterCount} linked reporters`}`
+              : ''}.{' '}
+          </span>
           <Link className="font-semibold text-primary underline underline-offset-4" href="/report">
             Add a manual report
           </Link>

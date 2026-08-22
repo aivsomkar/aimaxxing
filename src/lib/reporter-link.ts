@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, createPublicKey, randomBytes } from 'node:crypto'
 import {
   approveLinkSession,
   consumeApprovedLink,
@@ -23,12 +23,21 @@ function fingerprint(publicKey: string): string {
   return `sha256:${createHash('sha256').update(publicKey, 'utf8').digest('hex')}`
 }
 
+export function validReporterPublicKey(value: string): boolean {
+  try {
+    return createPublicKey(value).asymmetricKeyType === 'ed25519'
+  } catch {
+    return false
+  }
+}
+
 export async function startReporterLink(
   database: Database,
   input: { publicKey: string; machineId: string; machineLabel: string },
   origin: string,
   now = new Date(),
 ) {
+  if (!validReporterPublicKey(input.publicKey)) throw new Error('invalid reporter public key')
   const deviceCode = randomBytes(32).toString('base64url')
   const code = userCode()
   const expiresIn = 600

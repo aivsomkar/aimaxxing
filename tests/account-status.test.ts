@@ -53,6 +53,32 @@ describe('getAccountStatus', () => {
     })
   })
 
+  it('counts verified reporter usage and excludes revoked reporters from connected state', async () => {
+    const user = await createUser()
+    const reporters = await database.insert(schema.reporters).values([
+      {
+        userId: user.id, machineIdHash: `active-${user.id}`, machineLabel: 'Laptop',
+        publicKey: 'active-key', publicKeyFingerprint: `active-fp-${user.id}`,
+      },
+      {
+        userId: user.id, machineIdHash: `revoked-${user.id}`, machineLabel: 'Old laptop',
+        publicKey: 'revoked-key', publicKeyFingerprint: `revoked-fp-${user.id}`,
+        revokedAt: new Date('2026-08-22T00:00:00Z'),
+      },
+    ]).returning()
+    await database.insert(schema.reporterToolDays).values({
+      reporterId: reporters[0].id, userId: user.id, tool: 'codex-cli', model: 'gpt-5.2',
+      day: '2026-08-23', sessions: 2,
+    })
+    await expect(getAccountStatus(database, user.id)).resolves.toMatchObject({
+      state: 'private-ready', usageCount: 1, connectedReporterCount: 1,
+      reporters: [
+        { machineLabel: 'Laptop', usageCount: 1, revokedAt: null },
+        { machineLabel: 'Old laptop', usageCount: 0, revokedAt: new Date('2026-08-22T00:00:00Z') },
+      ],
+    })
+  })
+
   it('identifies selected projects as publishable without usage', async () => {
     const user = await createUser()
     await database.insert(schema.portfolioProjects).values({

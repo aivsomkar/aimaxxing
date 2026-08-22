@@ -1,13 +1,16 @@
 'use server'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { db } from '@/db/client'
-import { users } from '@/db/schema'
+import { reporters, users } from '@/db/schema'
 import { setPublicOptInForUser, deleteAllDataForUser, setXHandleForUser } from '@/lib/account'
 import { getAccountStatus } from '@/lib/account-status'
 import { validateXHandle } from '@/lib/social'
+import { deleteReporterData } from '@/lib/reporter-store'
+import { revokeOwnedReporter } from '@/lib/reporter-revoke'
+import { z } from 'zod'
 
 // Not unit-tested directly: it calls next-auth's auth(), which needs the
 // request-scoped machinery Next wires up at request time. The mutations it
@@ -22,6 +25,15 @@ async function currentUser() {
   return u
 }
 
+function revalidatePublicSurfaces(handle: string) {
+  revalidatePath('/')
+  revalidatePath(`/@${handle}`)
+  revalidatePath(`/${handle}`)
+  revalidatePath(`/api/v1/profile/${handle}`)
+  revalidatePath(`/api/v1/profile/${handle}/card`)
+  revalidatePath('/settings')
+}
+
 export async function setPublicOptIn(value: boolean) {
   const u = await currentUser()
   if (value) {
@@ -31,9 +43,7 @@ export async function setPublicOptIn(value: boolean) {
     }
   }
   await setPublicOptInForUser(db, u.id, value)
-  revalidatePath('/')
-  revalidatePath(`/@${u.handle}`)
-  revalidatePath(`/${u.handle}`)
+  revalidatePublicSurfaces(u.handle)
   redirect(`/settings?notice=${value ? 'Profile%20published' : 'Profile%20unpublished'}`)
 }
 
@@ -44,9 +54,7 @@ export async function deleteAllData(formData: FormData) {
     redirect(`/settings?error=${encodeURIComponent(`Type ${u.handle} exactly to delete your data`)}`)
   }
   await deleteAllDataForUser(db, u.id)
-  revalidatePath('/')
-  revalidatePath(`/@${u.handle}`)
-  revalidatePath(`/${u.handle}`)
+  revalidatePublicSurfaces(u.handle)
   redirect('/settings?notice=Account%20data%20deleted')
 }
 
@@ -57,8 +65,36 @@ export async function saveXHandle(formData: FormData) {
   if (!result.ok) redirect(`/settings?error=${encodeURIComponent(result.error)}`)
 
   await setXHandleForUser(db, u.id, input)
-  revalidatePath('/')
-  revalidatePath(`/@${u.handle}`)
-  revalidatePath(`/${u.handle}`)
+  revalidatePublicSurfaces(u.handle)
   redirect(`/settings?notice=${result.value ? 'X%20handle%20published' : 'X%20handle%20removed'}`)
+}
+
+export async function revokeUsageReporter(formData: FormData) {
+  const u = await currentUser()
+  const reporterId = z.string().uuid().safeParse(String(formData.get('reporterId') ?? ''))
+  if (!reporterId.success || !await revokeOwnedReporter(db, u.id, reporterId.data, false)) {
+    redirect('/settings?error=Reporter%20could%20not%20be%20revoked')
+  }
+  revalidatePublicSurfaces(u.handle)
+  redirect('/settings?notice=Reporter%20revoked')
+}
+
+export async function deleteUsageReporterData(formData: FormData) {
+  const u = await currentUser()
+  const reporterId = z.string().uuid().safeParse(String(formData.get('reporterId') ?? ''))
+  if (!reporterId.success) redirect('/settings?error=Reporter%20could%20not%20be%20found')
+  const [reporter] = await db.select({
+    fingerprint: reporters.publicKeyFingerprint,
+  }).from(reporters).where(and(
+    eq(reporters.id, reporterId.data),
+    eq(reporters.userId, u.id),
+  ))
+  const expected = reporter?.fingerprint.slice(0, 23)
+  const confirmation = String(formData.get('fingerprintConfirmation') ?? '').trim()
+  if (!expected || confirmation !== expected
+    || !await deleteReporterData(db, u.id, reporterId.data)) {
+    redirect('/settings?error=Type%20the%20displayed%20fingerprint%20exactly%20to%20delete%20reporter%20data')
+  }
+  revalidatePublicSurfaces(u.handle)
+  redirect('/settings?notice=Reporter%20usage%20deleted')
 }

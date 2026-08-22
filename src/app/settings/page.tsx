@@ -1,12 +1,19 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
-import { setPublicOptIn, deleteAllData, saveXHandle } from './actions'
+import {
+  setPublicOptIn,
+  deleteAllData,
+  saveXHandle,
+  revokeUsageReporter,
+  deleteUsageReporterData,
+} from './actions'
 import { eq } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { users } from '@/db/schema'
 import { SocialSettings } from '@/components/SocialSettings'
 import { AccountDashboard } from '@/components/AccountDashboard'
 import { getAccountStatus } from '@/lib/account-status'
+import { ReporterSettings } from '@/components/ReporterSettings'
 
 export default async function Settings({
   searchParams,
@@ -46,12 +53,19 @@ export default async function Settings({
 
       <AccountDashboard status={status} onPublish={publish} onUnpublish={unpublish} />
 
+      <ReporterSettings
+        reporters={status.reporters}
+        onRevoke={revokeUsageReporter}
+        onDeleteData={deleteUsageReporterData}
+      />
+
       <SocialSettings xHandle={user.xHandle} onSave={saveXHandle} />
 
       <section className="space-y-2">
         <h2 className="font-semibold">Delete everything</h2>
         <p className="text-sm opacity-70">
-          Removes reported usage, selected websites, social handles, private imports, and GitHub output.
+          Removes manual and verified usage, linked reporter identities, selected websites, social handles,
+          private imports, and GitHub output.
           Type <strong>{user.handle}</strong> to confirm. This cannot be undone.
         </p>
         <form action={deleteAllData} className="flex max-w-lg flex-col gap-3 sm:flex-row">

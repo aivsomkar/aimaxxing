@@ -1,5 +1,13 @@
 import { eq } from 'drizzle-orm'
-import { users, toolDays, githubStats, portfolioImportSessions, portfolioProjects } from '@/db/schema'
+import {
+  users,
+  toolDays,
+  githubStats,
+  portfolioImportSessions,
+  portfolioProjects,
+  reporterLinkSessions,
+  reporters,
+} from '@/db/schema'
 import { validateXHandle } from '@/lib/social'
 
 // Loose enough to accept both the pglite-backed and node-postgres-backed
@@ -42,6 +50,8 @@ export async function deleteAllDataForUser(database: Database, userId: number): 
     await tx.delete(portfolioImportSessions).where(eq(portfolioImportSessions.userId, userId))
     await tx.delete(portfolioProjects).where(eq(portfolioProjects.userId, userId))
     await tx.delete(toolDays).where(eq(toolDays.userId, userId))
+    await tx.delete(reporterLinkSessions).where(eq(reporterLinkSessions.userId, userId))
+    await tx.delete(reporters).where(eq(reporters.userId, userId))
     await tx.delete(githubStats).where(eq(githubStats.userId, userId))
     await tx.update(users)
       .set({ publicOptIn: false, xHandle: null, instagramHandle: null, tagOptIn: false })

@@ -30,8 +30,11 @@ async function owner() {
   return user
 }
 
+const publicKey = generateKeyPairSync('ed25519').publicKey
+  .export({ type: 'spki', format: 'pem' }).toString()
+
 const input = {
-  publicKey: '-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA111111111111111111111111111111111111111=\n-----END PUBLIC KEY-----',
+  publicKey,
   machineId: 'random-machine-identifier-123456789',
   machineLabel: 'Omkar MacBook',
 }
@@ -74,4 +77,13 @@ describe('reporter link protocol', () => {
     await expect(pollReporterLink(database, expired.deviceCode, later)).resolves.toEqual({ status: 'expired' })
     await expect(approveReporterLink(database, expired.userCode, user.id, later)).resolves.toBe(false)
   })
+
+  it('rejects non-Ed25519 public keys before storing a link session', async () => {
+    await expect(startReporterLink(database, {
+      ...input,
+      publicKey: 'not-a-public-key',
+      machineId: 'invalid-key-machine-identifier',
+    }, 'https://www.aimaxxing.lol')).rejects.toThrow(/public key/i)
+  })
 })
+import { generateKeyPairSync } from 'node:crypto'

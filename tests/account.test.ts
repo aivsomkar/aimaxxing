@@ -97,6 +97,22 @@ describe('deleteAllDataForUser', () => {
     expect(rows).toHaveLength(0)
   })
 
+  it('removes linked reporters and their verified usage', async () => {
+    const user = await makeUser()
+    const [reporter] = await db.insert(schema.reporters).values({
+      userId: user.id, machineIdHash: `delete-machine-${user.id}`, machineLabel: 'Laptop',
+      publicKey: 'delete-key', publicKeyFingerprint: `delete-fingerprint-${user.id}`,
+    }).returning()
+    await db.insert(schema.reporterToolDays).values({
+      reporterId: reporter.id, userId: user.id, tool: 'codex-cli', model: 'gpt', day: '2026-08-23',
+    })
+    await deleteAllDataForUser(db, user.id)
+    expect(await db.select().from(schema.reporters)
+      .where(eq(schema.reporters.userId, user.id))).toHaveLength(0)
+    expect(await db.select().from(schema.reporterToolDays)
+      .where(eq(schema.reporterToolDays.userId, user.id))).toHaveLength(0)
+  })
+
   it('removes the github_stats row for the user', async () => {
     const user = await makeUser()
     await db.insert(schema.githubStats).values({ userId: user.id, mergedPrs: 5 })

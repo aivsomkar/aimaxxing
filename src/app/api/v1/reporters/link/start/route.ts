@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/db/client'
-import { startReporterLink } from '@/lib/reporter-link'
+import { startReporterLink, validReporterPublicKey } from '@/lib/reporter-link'
 
 const bodySchema = z.object({
   publicKey: z.string().min(64).max(2_000),
@@ -21,6 +21,9 @@ export async function POST(request: Request) {
   }
   const parsed = bodySchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: 'invalid request' }, { status: 400 })
+  if (!validReporterPublicKey(parsed.data.publicKey)) {
+    return NextResponse.json({ error: 'invalid public key' }, { status: 400 })
+  }
   try {
     return NextResponse.json(await startReporterLink(
       db,
