@@ -12,6 +12,11 @@ import {
   githubStats,
   portfolioProjects,
   portfolioImportSessions,
+  reporterActionRequests,
+  reporterLinkSessions,
+  reporterSubmissions,
+  reporterToolDays,
+  reporters,
 } from '../src/db/schema'
 import {
   cutoffFor,
@@ -27,6 +32,11 @@ import { collectiveTotals, shareByModel } from '../src/lib/collective'
 async function reset() {
   await db.delete(portfolioImportSessions)
   await db.delete(portfolioProjects)
+  await db.delete(reporterActionRequests)
+  await db.delete(reporterSubmissions)
+  await db.delete(reporterLinkSessions)
+  await db.delete(reporterToolDays)
+  await db.delete(reporters)
   await db.delete(toolDays)
   await db.delete(githubStats)
   await db.delete(users)
@@ -469,5 +479,45 @@ describe('profile query layers', () => {
       cacheWrite: 52,
       total: 136,
     })
+  })
+
+  it('combines verified reporter snapshots with manual usage throughout public queries', async () => {
+    const [user] = await db.insert(users).values({
+      githubId: 'combined-owner', handle: 'combined-owner', publicOptIn: true,
+    }).returning()
+    const [reporter] = await db.insert(reporters).values({
+      userId: user.id, machineIdHash: 'combined-machine', machineLabel: 'Laptop',
+      publicKey: 'combined-key', publicKeyFingerprint: 'combined-fingerprint',
+    }).returning()
+    await db.insert(toolDays).values({
+      userId: user.id, tool: 'manual', model: 'manual-model', day: '2026-08-23',
+      sessions: 2, tokensIn: 3, tokensOut: 4, costUsd: '1.0000',
+      source: 'manual', verified: false,
+    })
+    await db.insert(reporterToolDays).values({
+      reporterId: reporter.id, userId: user.id, tool: 'codex-cli', model: 'gpt-5.2',
+      day: '2026-08-23', sessions: 5, tokensIn: 10, tokensOut: 20, cacheRead: 30,
+      cacheWrite: 40, costUsd: '4.0000',
+    })
+
+    const collective = await getCollectiveRows('all')
+    expect(collective).toHaveLength(2)
+    expect(collective.find((row) => row.tool === 'codex-cli')).toMatchObject({
+      verified: true, sponsored: false, costUsd: 4,
+    })
+    const summary = await getCollectiveSummary(new Date('2026-08-23T12:00:00Z'))
+    expect(summary.totals.costUsd).toBe(5)
+    expect(summary.developers).toBe(1)
+
+    const [entrant] = await getEntrants('all')
+    expect(entrant.tools.map((tool) => tool.tool).sort()).toEqual(['codex-cli', 'manual'])
+    expect(entrant.anyUnverified).toBe(true)
+    expect(entrant.costUsd).toBe(5)
+
+    const profile = await getProfileRecord(user.handle)
+    expect(profile?.costUsd).toBe(5)
+    expect(profile?.anyVerified).toBe(true)
+    expect(profile?.anyUnverified).toBe(true)
+    expect(profile?.tokenTotals.total).toBe(107)
   })
 })

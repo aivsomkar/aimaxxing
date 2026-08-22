@@ -1,6 +1,6 @@
-import { and, asc, countDistinct, eq, gte, sql } from 'drizzle-orm'
+import { and, asc, eq, gte, sql } from 'drizzle-orm'
 import { db } from '@/db/client'
-import { users, toolDays, githubStats, portfolioProjects } from '@/db/schema'
+import { users, toolDays, reporterToolDays, githubStats, portfolioProjects } from '@/db/schema'
 import type { BurnRow } from './collective'
 import type { CollectiveTotals } from './collective'
 import type { Entrant } from './boards'
@@ -37,14 +37,25 @@ function isPublic(u: { publicOptIn: boolean }, hasData: boolean): boolean {
 // reasoning.
 export async function getCollectiveRows(window: Window, today = new Date()): Promise<BurnRow[]> {
   const cutoff = cutoffFor(window, today)
-  const rows = await db.select().from(toolDays)
-    .where(cutoff ? gte(toolDays.day, cutoff) : undefined)
-  return rows.map((r) => ({
+  const [manualRows, verifiedRows] = await Promise.all([
+    db.select().from(toolDays).where(cutoff ? gte(toolDays.day, cutoff) : undefined),
+    db.select().from(reporterToolDays)
+      .where(cutoff ? gte(reporterToolDays.day, cutoff) : undefined),
+  ])
+  return [
+    ...manualRows.map((r) => ({
     tool: r.tool, model: r.model, costUsd: Number(r.costUsd),
     tokensIn: r.tokensIn, tokensOut: r.tokensOut,
     cacheRead: r.cacheRead, cacheWrite: r.cacheWrite,
     sponsored: r.sponsored, verified: r.verified,
-  }))
+    })),
+    ...verifiedRows.map((r) => ({
+      tool: r.tool, model: r.model, costUsd: Number(r.costUsd),
+      tokensIn: r.tokensIn, tokensOut: r.tokensOut,
+      cacheRead: r.cacheRead, cacheWrite: r.cacheWrite,
+      sponsored: false, verified: true,
+    })),
+  ]
 }
 
 export type CollectiveSummary = {
@@ -62,6 +73,14 @@ const aggregateSelection = {
   cacheWrite: sql<string>`coalesce(sum(case when ${toolDays.sponsored} = false then ${toolDays.cacheWrite} else 0 end), 0)`,
 }
 
+const reporterAggregateSelection = {
+  costUsd: sql<string>`coalesce(sum(${reporterToolDays.costUsd}), 0)`,
+  tokensIn: sql<string>`coalesce(sum(${reporterToolDays.tokensIn}), 0)`,
+  tokensOut: sql<string>`coalesce(sum(${reporterToolDays.tokensOut}), 0)`,
+  cacheRead: sql<string>`coalesce(sum(${reporterToolDays.cacheRead}), 0)`,
+  cacheWrite: sql<string>`coalesce(sum(${reporterToolDays.cacheWrite}), 0)`,
+}
+
 function totalsFrom(row: Record<string, unknown> | undefined): CollectiveTotals {
   const tokensIn = Number(row?.tokensIn ?? 0)
   const tokensOut = Number(row?.tokensOut ?? 0)
@@ -77,33 +96,62 @@ function totalsFrom(row: Record<string, unknown> | undefined): CollectiveTotals 
   }
 }
 
+function addTotals(a: CollectiveTotals, b: CollectiveTotals): CollectiveTotals {
+  return {
+    costUsd: a.costUsd + b.costUsd,
+    tokensIn: a.tokensIn + b.tokensIn,
+    tokensOut: a.tokensOut + b.tokensOut,
+    cacheRead: a.cacheRead + b.cacheRead,
+    cacheWrite: a.cacheWrite + b.cacheWrite,
+    tokensTotal: a.tokensTotal + b.tokensTotal,
+  }
+}
+
 export async function getCollectiveSummary(today = new Date()): Promise<CollectiveSummary> {
   const dayCutoff = cutoffFor('day', today)!
-  const [allRows, dayRows, modelRows, developerRows] = await Promise.all([
+  const [
+    allRows, reporterAllRows, dayRows, reporterDayRows,
+    modelRows, reporterModelRows, developerRows, reporterDeveloperRows,
+  ] = await Promise.all([
     db.select(aggregateSelection).from(toolDays),
+    db.select(reporterAggregateSelection).from(reporterToolDays),
     db.select(aggregateSelection).from(toolDays).where(gte(toolDays.day, dayCutoff)),
+    db.select(reporterAggregateSelection).from(reporterToolDays)
+      .where(gte(reporterToolDays.day, dayCutoff)),
     db.select({
       model: toolDays.model,
       costUsd: sql<string>`coalesce(sum(${toolDays.costUsd}), 0)`,
     }).from(toolDays)
       .where(and(eq(toolDays.verified, true), eq(toolDays.sponsored, false)))
       .groupBy(toolDays.model),
-    db.select({ value: countDistinct(toolDays.userId) })
+    db.select({
+      model: reporterToolDays.model,
+      costUsd: sql<string>`coalesce(sum(${reporterToolDays.costUsd}), 0)`,
+    }).from(reporterToolDays).groupBy(reporterToolDays.model),
+    db.select({ userId: toolDays.userId })
       .from(toolDays)
       .innerJoin(users, eq(users.id, toolDays.userId))
       .where(eq(users.publicOptIn, true)),
+    db.select({ userId: reporterToolDays.userId })
+      .from(reporterToolDays)
+      .innerJoin(users, eq(users.id, reporterToolDays.userId))
+      .where(eq(users.publicOptIn, true)),
   ])
-  const modelCosts = modelRows
-    .map((row) => ({ model: row.model, costUsd: Number(row.costUsd) }))
+  const costByModel = new Map<string, number>()
+  for (const row of [...modelRows, ...reporterModelRows]) {
+    costByModel.set(row.model, (costByModel.get(row.model) ?? 0) + Number(row.costUsd))
+  }
+  const modelCosts = [...costByModel]
+    .map(([model, costUsd]) => ({ model, costUsd }))
     .sort((a, b) => b.costUsd - a.costUsd || a.model.localeCompare(b.model))
   const verifiedSpend = modelCosts.reduce((total, row) => total + row.costUsd, 0)
   return {
-    totals: totalsFrom(allRows[0]),
-    dayTotals: totalsFrom(dayRows[0]),
+    totals: addTotals(totalsFrom(allRows[0]), totalsFrom(reporterAllRows[0])),
+    dayTotals: addTotals(totalsFrom(dayRows[0]), totalsFrom(reporterDayRows[0])),
     modelShares: verifiedSpend > 0
       ? modelCosts.map((row) => ({ ...row, share: row.costUsd / verifiedSpend }))
       : [],
-    developers: Number(developerRows[0]?.value ?? 0),
+    developers: new Set([...developerRows, ...reporterDeveloperRows].map((row) => row.userId)).size,
   }
 }
 
@@ -115,7 +163,7 @@ export async function getEntrants(window: Window, today = new Date()): Promise<E
   // below, via isPublic()/canAppearOnBoards, rather than re-derived here in
   // SQL. A non-opted-in user's rows pass through this query in memory but are
   // filtered out before this function returns anything to its caller.
-  const rows = await db.select({
+  const [manualRows, reporterRows] = await Promise.all([db.select({
     handle: users.handle, avatarUrl: users.avatarUrl, publicOptIn: users.publicOptIn,
     xHandle: users.xHandle, tagOptIn: users.tagOptIn,
     userId: users.id, tool: toolDays.tool, sessions: toolDays.sessions,
@@ -123,7 +171,20 @@ export async function getEntrants(window: Window, today = new Date()): Promise<E
   })
     .from(users)
     .innerJoin(toolDays, eq(toolDays.userId, users.id))
-    .where(cutoff ? gte(toolDays.day, cutoff) : undefined)
+    .where(cutoff ? gte(toolDays.day, cutoff) : undefined),
+  db.select({
+    handle: users.handle, avatarUrl: users.avatarUrl, publicOptIn: users.publicOptIn,
+    xHandle: users.xHandle, tagOptIn: users.tagOptIn,
+    userId: users.id, tool: reporterToolDays.tool, sessions: reporterToolDays.sessions,
+    costUsd: reporterToolDays.costUsd,
+  })
+    .from(users)
+    .innerJoin(reporterToolDays, eq(reporterToolDays.userId, users.id))
+    .where(cutoff ? gte(reporterToolDays.day, cutoff) : undefined)])
+  const rows = [
+    ...manualRows,
+    ...reporterRows.map((row) => ({ ...row, verified: true })),
+  ]
 
   const stats = await db.select().from(githubStats)
   const statFor = new Map(stats.map((s) => [s.userId, s]))
@@ -223,8 +284,9 @@ export async function getProfileRecord(handle: string): Promise<ProfileRecord | 
     .where(eq(users.handle, handle))
   if (!u) return null
 
-  const [rows, stats, projects] = await Promise.all([
+  const [manualRows, reporterRows, stats, projects] = await Promise.all([
     db.select().from(toolDays).where(eq(toolDays.userId, u.id)),
+    db.select().from(reporterToolDays).where(eq(reporterToolDays.userId, u.id)),
     db.select().from(githubStats).where(eq(githubStats.userId, u.id)),
     db
       .select({
@@ -240,6 +302,10 @@ export async function getProfileRecord(handle: string): Promise<ProfileRecord | 
       .where(eq(portfolioProjects.userId, u.id))
       .orderBy(asc(portfolioProjects.sortOrder), asc(portfolioProjects.id)),
   ])
+  const rows = [
+    ...manualRows,
+    ...reporterRows.map((row) => ({ ...row, verified: true })),
+  ]
   const s = stats[0]
 
   const tools: ToolDepth[] = []
