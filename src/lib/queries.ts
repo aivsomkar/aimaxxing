@@ -4,7 +4,7 @@ import { users, toolDays, githubStats, portfolioProjects } from '@/db/schema'
 import type { BurnRow } from './collective'
 import type { Entrant } from './boards'
 import type { ToolDepth } from './index-math'
-import { canAppearOnBoards } from './consent'
+import { canAppearOnBoards, hasShowcaseContent } from './consent'
 
 export type Window = 'day' | 'week' | 'month' | 'all'
 
@@ -100,7 +100,7 @@ export async function getEntrants(window: Window, today = new Date()): Promise<E
 // Narrow public shape of a user row. Social consent stays outside this object:
 // getProfile returns only the X handle at top level when tagOptIn is true,
 // while instagramHandle, tagOptIn, and githubId never reach public callers.
-type PublicUser = {
+export type PublicUser = {
   id: number
   handle: string
   avatarUrl: string | null
@@ -117,16 +117,37 @@ export type PublicPortfolioProject = {
   sortOrder: number
 }
 
-export async function getProfile(handle: string): Promise<{
+export type ProfileRecord = {
   user: PublicUser
   xHandle: string | null
   tools: ToolDepth[]
+  models: { model: string; tokens: number; costUsd: number }[]
+  tokenTotals: {
+    input: number
+    output: number
+    cacheRead: number
+    cacheWrite: number
+    total: number
+  }
   costUsd: number
   mergedPrs: number
+  activeRepos: number
   contributions: number
   anyUnverified: boolean
   projects: PublicPortfolioProject[]
-} | null> {
+}
+
+function profileSummary(profile: ProfileRecord) {
+  return {
+    usageRows: profile.tools.length,
+    projects: profile.projects.length,
+    mergedPrs: profile.mergedPrs,
+    activeRepos: profile.activeRepos,
+    contributions: profile.contributions,
+  }
+}
+
+export async function getProfileRecord(handle: string): Promise<ProfileRecord | null> {
   const [u] = await db
     .select({
       id: users.id,
@@ -140,39 +161,48 @@ export async function getProfile(handle: string): Promise<{
     .where(eq(users.handle, handle))
   if (!u) return null
 
-  const rows = await db.select().from(toolDays).where(eq(toolDays.userId, u.id))
-  // Gate before any aggregate derived from `rows` is returned: a non-opted-in
-  // (or data-less) user's profile does not exist as far as any caller of this
-  // function is concerned. This is a public-profile query — see the task-8
-  // report for why a self-view page must not read through this function.
-  if (!isPublic(u, rows.length > 0)) return null
-
-  const [s] = await db.select().from(githubStats).where(eq(githubStats.userId, u.id))
-  const projects = await db
-    .select({
-      id: portfolioProjects.id,
-      source: portfolioProjects.source,
-      title: portfolioProjects.title,
-      description: portfolioProjects.description,
-      liveUrl: portfolioProjects.liveUrl,
-      repositoryUrl: portfolioProjects.repositoryUrl,
-      sortOrder: portfolioProjects.sortOrder,
-    })
-    .from(portfolioProjects)
-    .where(eq(portfolioProjects.userId, u.id))
-    .orderBy(asc(portfolioProjects.sortOrder), asc(portfolioProjects.id))
+  const [rows, stats, projects] = await Promise.all([
+    db.select().from(toolDays).where(eq(toolDays.userId, u.id)),
+    db.select().from(githubStats).where(eq(githubStats.userId, u.id)),
+    db
+      .select({
+        id: portfolioProjects.id,
+        source: portfolioProjects.source,
+        title: portfolioProjects.title,
+        description: portfolioProjects.description,
+        liveUrl: portfolioProjects.liveUrl,
+        repositoryUrl: portfolioProjects.repositoryUrl,
+        sortOrder: portfolioProjects.sortOrder,
+      })
+      .from(portfolioProjects)
+      .where(eq(portfolioProjects.userId, u.id))
+      .orderBy(asc(portfolioProjects.sortOrder), asc(portfolioProjects.id)),
+  ])
+  const s = stats[0]
 
   const tools: ToolDepth[] = []
+  const models: ProfileRecord['models'] = []
+  const tokenTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 }
   let costUsd = 0
   let anyUnverified = false
   for (const r of rows) {
     const c = Number(r.costUsd)
+    const tokens = r.tokensIn + r.tokensOut + r.cacheRead + r.cacheWrite
     costUsd += c
+    tokenTotals.input += r.tokensIn
+    tokenTotals.output += r.tokensOut
+    tokenTotals.cacheRead += r.cacheRead
+    tokenTotals.cacheWrite += r.cacheWrite
+    tokenTotals.total += tokens
     if (!r.verified) anyUnverified = true
     const t = tools.find((x) => x.tool === r.tool)
     if (t) { t.sessions += r.sessions; t.costUsd += c }
     else tools.push({ tool: r.tool, sessions: r.sessions, costUsd: c })
+    const model = models.find((entry) => entry.model === r.model)
+    if (model) { model.tokens += tokens; model.costUsd += c }
+    else models.push({ model: r.model, tokens, costUsd: c })
   }
+  models.sort((a, b) => b.tokens - a.tokens || a.model.localeCompare(b.model))
   return {
     user: {
       id: u.id,
@@ -181,8 +211,29 @@ export async function getProfile(handle: string): Promise<{
       publicOptIn: u.publicOptIn,
     },
     xHandle: u.tagOptIn ? u.xHandle : null,
-    tools, costUsd,
-    mergedPrs: s?.mergedPrs ?? 0, contributions: s?.contributions ?? 0,
+    tools, models, tokenTotals, costUsd,
+    mergedPrs: s?.mergedPrs ?? 0,
+    activeRepos: s?.activeRepos ?? 0,
+    contributions: s?.contributions ?? 0,
     anyUnverified, projects,
   }
+}
+
+export async function getPublicProfile(handle: string): Promise<ProfileRecord | null> {
+  const profile = await getProfileRecord(handle)
+  if (!profile?.user.publicOptIn || !hasShowcaseContent(profileSummary(profile))) return null
+  return profile
+}
+
+export async function getProfileForViewer(
+  handle: string,
+  viewerHandle: string | null,
+): Promise<{ profile: ProfileRecord; isOwner: boolean; isPublic: boolean } | null> {
+  const profile = await getProfileRecord(handle)
+  if (!profile) return null
+  const isOwner = viewerHandle === profile.user.handle
+  const isPublicProfile = profile.user.publicOptIn && hasShowcaseContent(profileSummary(profile))
+  return isOwner || isPublicProfile
+    ? { profile, isOwner, isPublic: isPublicProfile }
+    : null
 }

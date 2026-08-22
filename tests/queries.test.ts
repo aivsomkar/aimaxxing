@@ -13,7 +13,14 @@ import {
   portfolioProjects,
   portfolioImportSessions,
 } from '../src/db/schema'
-import { cutoffFor, getCollectiveRows, getEntrants, getProfile } from '../src/lib/queries'
+import {
+  cutoffFor,
+  getCollectiveRows,
+  getEntrants,
+  getProfileForViewer,
+  getProfileRecord,
+  getPublicProfile,
+} from '../src/lib/queries'
 
 async function reset() {
   await db.delete(portfolioImportSessions)
@@ -210,11 +217,11 @@ describe('getEntrants', () => {
   })
 })
 
-describe('getProfile', () => {
+describe('profile query layers', () => {
   beforeEach(reset)
 
   it('returns null for a handle that does not exist', async () => {
-    expect(await getProfile('nobody')).toBeNull()
+    expect(await getPublicProfile('nobody')).toBeNull()
   })
 
   it('returns null for a user who has not opted in, even though they have data', async () => {
@@ -224,13 +231,13 @@ describe('getProfile', () => {
       userId: priv.id, tool: 'claude-code', model: 'opus', day: '2026-08-21',
       sessions: 50, costUsd: '10.0000', source: 'manual', verified: false,
     })
-    expect(await getProfile('private')).toBeNull()
+    expect(await getPublicProfile('private')).toBeNull()
   })
 
   it('returns null for an opted-in user with no data', async () => {
     await db.insert(users)
       .values({ githubId: '2', handle: 'empty', publicOptIn: true }).returning()
-    expect(await getProfile('empty')).toBeNull()
+    expect(await getPublicProfile('empty')).toBeNull()
   })
 
   // xHandle/instagramHandle/tagOptIn are gated by tagOptIn, a DIFFERENT
@@ -248,7 +255,7 @@ describe('getProfile', () => {
       userId: u.id, tool: 'a', model: 'm', day: '2026-08-20',
       sessions: 1, costUsd: '1.0000', source: 'reporter', verified: true,
     })
-    const profile = await getProfile('tagshy')
+    const profile = await getPublicProfile('tagshy')
     expect(Object.keys(profile!.user).sort()).toEqual(['avatarUrl', 'handle', 'id', 'publicOptIn'])
     expect(profile!.xHandle).toBeNull()
   })
@@ -263,7 +270,7 @@ describe('getProfile', () => {
       sessions: 25, costUsd: '2.0000', source: 'reporter', verified: true,
     })
 
-    expect((await getProfile('social-profile'))!.xHandle).toBe('@social_dev')
+    expect((await getPublicProfile('social-profile'))!.xHandle).toBe('@social_dev')
   })
 
   it('returns the profile for an opted-in user, aggregating tools per tool across models and days', async () => {
@@ -275,7 +282,7 @@ describe('getProfile', () => {
       { userId: pub.id, tool: 'claude-code', model: 'sonnet', day: '2026-08-21',
         sessions: 20, costUsd: '5.0000', source: 'reporter', verified: true },
     ])
-    const profile = await getProfile('public')
+    const profile = await getPublicProfile('public')
     expect(profile).not.toBeNull()
     expect(profile!.user.handle).toBe('public')
     expect(profile!.tools).toHaveLength(1)
@@ -293,7 +300,7 @@ describe('getProfile', () => {
       { userId: u.id, tool: 'b', model: 'm', day: '2026-08-20',
         sessions: 30, costUsd: '1.0000', source: 'manual', verified: false },
     ])
-    const profile = await getProfile('mixed')
+    const profile = await getPublicProfile('mixed')
     expect(profile!.anyUnverified).toBe(true)
   })
 
@@ -305,7 +312,7 @@ describe('getProfile', () => {
       userId: u.id, tool: 'a', model: 'm', day: '2026-08-20',
       sessions: 30, costUsd: '1.0000', source: 'reporter', verified: true,
     })
-    const profile = await getProfile('shipped')
+    const profile = await getPublicProfile('shipped')
     expect(profile!.mergedPrs).toBe(7)
     expect(profile!.contributions).toBe(200)
   })
@@ -334,7 +341,7 @@ describe('getProfile', () => {
       expiresAt: new Date('2026-08-23T00:00:00Z'),
     })
 
-    const profile = await getProfile('builder')
+    const profile = await getPublicProfile('builder')
 
     expect(profile!.projects.map((project) => project.title)).toEqual(['First', 'Second'])
     expect(Object.keys(profile!.projects[0]).sort()).toEqual([
@@ -344,6 +351,71 @@ describe('getProfile', () => {
       source: 'github',
       liveUrl: 'https://first.example',
       repositoryUrl: 'https://github.com/builder/first',
+    })
+  })
+
+  it('allows the matching owner to preview an unlisted empty profile', async () => {
+    await db.insert(users).values({
+      githubId: 'owner-private', handle: 'owner-private', publicOptIn: false,
+    })
+
+    expect(await getPublicProfile('owner-private')).toBeNull()
+    expect(await getProfileForViewer('owner-private', 'someone-else')).toBeNull()
+    await expect(getProfileForViewer('owner-private', 'owner-private')).resolves.toMatchObject({
+      isOwner: true,
+      isPublic: false,
+      profile: { user: { handle: 'owner-private' } },
+    })
+  })
+
+  it('publishes a selected-project-only profile without adding a board entrant', async () => {
+    const [user] = await db.insert(users).values({
+      githubId: 'project-only', handle: 'project-only', publicOptIn: true,
+    }).returning()
+    await db.insert(portfolioProjects).values({
+      userId: user.id,
+      source: 'manual',
+      title: 'Live app',
+      liveUrl: 'https://live.example',
+    })
+
+    expect((await getPublicProfile('project-only'))?.projects).toHaveLength(1)
+    expect(await getEntrants('all')).toHaveLength(0)
+  })
+
+  it('aggregates model costs and every token class across rows', async () => {
+    const [user] = await db.insert(users).values({
+      githubId: 'token-owner', handle: 'token-owner', publicOptIn: true,
+    }).returning()
+    await db.insert(toolDays).values([
+      {
+        userId: user.id, tool: 'codex', model: 'gpt-5', day: '2026-08-20',
+        sessions: 2, tokensIn: 10, tokensOut: 20, cacheRead: 30, cacheWrite: 40,
+        costUsd: '2.5000', source: 'manual', verified: false,
+      },
+      {
+        userId: user.id, tool: 'codex', model: 'gpt-5', day: '2026-08-21',
+        sessions: 3, tokensIn: 1, tokensOut: 2, cacheRead: 3, cacheWrite: 4,
+        costUsd: '1.5000', source: 'manual', verified: false,
+      },
+      {
+        userId: user.id, tool: 'claude-code', model: 'opus', day: '2026-08-21',
+        sessions: 1, tokensIn: 5, tokensOut: 6, cacheRead: 7, cacheWrite: 8,
+        costUsd: '6.0000', source: 'reporter', verified: true,
+      },
+    ])
+
+    const profile = await getProfileRecord('token-owner')
+    expect(profile?.models).toEqual([
+      { model: 'gpt-5', tokens: 110, costUsd: 4 },
+      { model: 'opus', tokens: 26, costUsd: 6 },
+    ])
+    expect(profile?.tokenTotals).toEqual({
+      input: 16,
+      output: 28,
+      cacheRead: 40,
+      cacheWrite: 52,
+      total: 136,
     })
   })
 })

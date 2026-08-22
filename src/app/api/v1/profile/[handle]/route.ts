@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getProfile } from '@/lib/queries'
+import { getPublicProfile } from '@/lib/queries'
 import { computeIndex } from '@/lib/index-math'
-import { canAppearOnBoards } from '@/lib/consent'
 
 // Raw JSON behind the profile page (see src/app/[handle]/page.tsx). Numbers
 // here must match the page exactly, and the shape must stay narrow: getProfile
@@ -9,11 +8,8 @@ import { canAppearOnBoards } from '@/lib/consent'
 // this route must not widen that by adding fields from elsewhere.
 export async function GET(_: Request, { params }: { params: Promise<{ handle: string }> }) {
   const { handle } = await params
-  const p = await getProfile(handle)
-  // getProfile already gates internally, but the consent rule must live in
-  // one place (canAppearOnBoards) and every public reader re-checks it here
-  // rather than trusting the bare publicOptIn flag — see task-10 report.
-  if (!p || !canAppearOnBoards({ publicOptIn: p.user.publicOptIn, hasData: p.tools.length > 0 })) {
+  const p = await getPublicProfile(handle)
+  if (!p) {
     return NextResponse.json({ error: 'not found' }, { status: 404 })
   }
   const breakdown = computeIndex(p.tools, { mergedPrs: p.mergedPrs, contributions: p.contributions })
@@ -23,7 +19,15 @@ export async function GET(_: Request, { params }: { params: Promise<{ handle: st
     avatarUrl: p.user.avatarUrl,
     costUsd: p.costUsd,
     anyUnverified: p.anyUnverified,
-    output: { mergedPrs: p.mergedPrs, contributions: p.contributions },
+    tools: p.tools,
+    models: p.models,
+    tokenTotals: p.tokenTotals,
+    projects: p.projects,
+    output: {
+      mergedPrs: p.mergedPrs,
+      activeRepos: p.activeRepos,
+      contributions: p.contributions,
+    },
     ...breakdown,
     formula: 'Index = sum(sqrt(sessions_t)) over qualifying tools + capped output term',
   })

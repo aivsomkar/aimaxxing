@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
-import { getProfile } from '@/lib/queries'
+import { auth } from '@/auth'
+import { getProfileForViewer } from '@/lib/queries'
 import {
   computeIndex,
   CONTRIBUTIONS_PER_UNIT,
@@ -7,7 +8,6 @@ import {
   QUALIFY_SESSIONS,
   QUALIFY_COST_USD,
 } from '@/lib/index-math'
-import { canAppearOnBoards } from '@/lib/consent'
 import { formatUsd } from '@/lib/format'
 import { PortfolioGrid } from '@/components/PortfolioGrid'
 import { XHandleLink } from '@/components/XHandleLink'
@@ -30,13 +30,11 @@ export default async function Profile({ params }: { params: Promise<{ handle: st
   // both that encoded form and a plain '@omkar' work.
   const raw = decodeURIComponent((await params).handle)
   const handle = raw.startsWith('@') ? raw.slice(1) : raw
-  const p = await getProfile(handle)
-  // getProfile already gates internally, but the consent rule must live in one
-  // place (canAppearOnBoards) rather than a bare publicOptIn check re-derived
-  // here — see task-10 report. An opted-in user with no data 404s too.
-  if (!p || !canAppearOnBoards({ publicOptIn: p.user.publicOptIn, hasData: p.tools.length > 0 })) {
-    notFound()
-  }
+  const session = await auth()
+  const viewerHandle = (session?.user as { handle?: string } | undefined)?.handle ?? null
+  const result = await getProfileForViewer(handle, viewerHandle)
+  if (!result) notFound()
+  const { profile: p, isOwner, isPublic } = result
 
   const b = computeIndex(p.tools, { mergedPrs: p.mergedPrs, contributions: p.contributions })
   const units = Math.max(0, p.mergedPrs) + Math.max(0, p.contributions) / CONTRIBUTIONS_PER_UNIT
@@ -45,6 +43,12 @@ export default async function Profile({ params }: { params: Promise<{ handle: st
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
+      {isOwner && !isPublic && (
+        <div className="mb-6 border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm">
+          <strong>Private preview.</strong> Only you can see this profile. Add a live project or AI usage,
+          then publish it from Settings when you are ready to share.
+        </div>
+      )}
       <header className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           {p.user.avatarUrl && (
@@ -58,12 +62,16 @@ export default async function Profile({ params }: { params: Promise<{ handle: st
           <div>
             <h1 className="text-2xl font-bold">@{p.user.handle}</h1>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span
-                className="text-xs text-muted-foreground"
-                title={p.anyUnverified ? 'Includes self-reported usage' : 'All usage verified'}
-              >
-                {p.anyUnverified ? '🔶 self-reported' : '✅ verified'}
-              </span>
+              {p.tools.length > 0 ? (
+                <span
+                  className="text-xs text-muted-foreground"
+                  title={p.anyUnverified ? 'Includes self-reported usage' : 'All usage verified'}
+                >
+                  {p.anyUnverified ? '🔶 self-reported' : '✅ verified'}
+                </span>
+              ) : (
+                <span className="text-xs text-muted-foreground">AI usage not connected</span>
+              )}
               {p.xHandle && <XHandleLink handle={p.xHandle} />}
             </div>
           </div>
@@ -106,7 +114,7 @@ export default async function Profile({ params }: { params: Promise<{ handle: st
           {b.perTool.length === 0 && (
             <tr className="border-t border-border">
               <td className="py-2 text-muted-foreground" colSpan={3}>
-                No tools reported.
+                No AI usage yet. Add a manual report from your dashboard to show tools, models, and tokens.
               </td>
             </tr>
           )}
@@ -139,10 +147,9 @@ export default async function Profile({ params }: { params: Promise<{ handle: st
 
       <p className="mt-8 text-xs text-muted-foreground">
         Total spend ${formatUsd(p.costUsd)} — not included in the Index.{' '}
-        <a className="underline" href={`/api/v1/profile/${p.user.handle}`}>
-          Raw JSON
-        </a>{' '}
-        ·{' '}
+        {isPublic && (
+          <><a className="underline" href={`/api/v1/profile/${p.user.handle}`}>Raw JSON</a>{' · '}</>
+        )}
         <a className="underline" href="/methodology">
           How this is calculated
         </a>

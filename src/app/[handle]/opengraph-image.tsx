@@ -1,8 +1,7 @@
 import * as React from 'react'
 import { ImageResponse } from 'next/og'
 import { notFound } from 'next/navigation'
-import { getProfile } from '@/lib/queries'
-import { canAppearOnBoards } from '@/lib/consent'
+import { getPublicProfile } from '@/lib/queries'
 import { buildShareCardData, decodeShareHandle } from '@/lib/share-card'
 
 export const alt = 'AI Maxxing developer profile'
@@ -12,11 +11,8 @@ export const dynamic = 'force-dynamic'
 
 export default async function OpenGraphImage({ params }: { params: Promise<{ handle: string }> }) {
   const handle = decodeShareHandle((await params).handle)
-  const profile = await getProfile(handle)
-  if (!profile || !canAppearOnBoards({
-    publicOptIn: profile.user.publicOptIn,
-    hasData: profile.tools.length > 0,
-  })) notFound()
+  const profile = await getPublicProfile(handle)
+  if (!profile) notFound()
 
   const card = buildShareCardData(profile)
 

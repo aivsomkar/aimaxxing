@@ -15,8 +15,16 @@ describe('buildShareCardData', () => {
       { tool: 'codex', sessions: 25, costUsd: 75.5 },
       { tool: 'claude-code', sessions: 25, costUsd: 50 },
     ],
+    models: [
+      { model: 'gpt-5', tokens: 1_000_000, costUsd: 75.5 },
+      { model: 'claude-opus-4-1', tokens: 500_000, costUsd: 50 },
+    ],
+    tokenTotals: {
+      input: 500_000, output: 300_000, cacheRead: 600_000, cacheWrite: 100_000, total: 1_500_000,
+    },
     costUsd: 125.5,
     mergedPrs: 4,
+    activeRepos: 2,
     contributions: 0,
     anyUnverified: false,
     projects: [{

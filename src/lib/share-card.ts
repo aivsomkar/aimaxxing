@@ -1,8 +1,6 @@
 import { computeIndex } from '@/lib/index-math'
 import { formatUsd } from '@/lib/format'
-import type { getProfile } from '@/lib/queries'
-
-type Profile = NonNullable<Awaited<ReturnType<typeof getProfile>>>
+import type { ProfileRecord } from '@/lib/queries'
 
 export function decodeShareHandle(value: string): string {
   const decoded = decodeURIComponent(value)
@@ -13,7 +11,7 @@ function countLabel(count: number, singular: string, plural: string): string {
   return `${count} ${count === 1 ? singular : plural}`
 }
 
-export function buildShareCardData(profile: Profile) {
+export function buildShareCardData(profile: ProfileRecord) {
   const breakdown = computeIndex(profile.tools, {
     mergedPrs: profile.mergedPrs,
     contributions: profile.contributions,
