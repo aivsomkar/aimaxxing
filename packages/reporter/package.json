@@ -2,10 +2,25 @@
   "name": "aimaxxing",
   "version": "0.1.0",
   "description": "Privacy-preserving verified AI usage reporter for AI Maxxing",
+  "keywords": [
+    "ai-usage",
+    "codex",
+    "claude-code",
+    "opencode"
+  ],
+  "homepage": "https://www.aimaxxing.lol",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aivsomkar/aimaxxing.git",
+    "directory": "packages/reporter"
+  },
+  "bugs": {
+    "url": "https://github.com/aivsomkar/aimaxxing/issues"
+  },
   "private": false,
   "type": "module",
   "bin": {
-    "aimaxxing": "./dist/cli.js"
+    "aimaxxing": "dist/cli.js"
   },
   "files": [
     "dist",
@@ -16,6 +31,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "prepack": "pnpm run build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run tests",
     "pack": "pnpm pack"

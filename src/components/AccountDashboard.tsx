@@ -32,7 +32,7 @@ export function AccountDashboard({
                   : 'Anyone with your link can view and share your AI Maxxing profile.'}
             </p>
           </div>
-          <Link className="inline-flex min-h-11 shrink-0 items-center border border-border px-4 text-sm font-semibold hover:border-primary hover:text-primary" href={`/@${status.handle}`}>
+          <Link prefetch={false} className="inline-flex min-h-11 shrink-0 items-center border border-border px-4 text-sm font-semibold hover:border-primary hover:text-primary" href={`/@${status.handle}`}>
             {status.publicOptIn ? 'View profile' : 'Private preview'}
           </Link>
         </div>
@@ -46,7 +46,7 @@ export function AccountDashboard({
         </Step>
         <Step number="02" title="Show live work" complete={status.projectCount > 0}>
           <span>{status.projectCount === 1 ? '1 live website' : `${status.projectCount} live websites`} selected. </span>
-          <Link className="font-semibold text-primary underline underline-offset-4" href="/settings/portfolio">
+          <Link prefetch={false} className="font-semibold text-primary underline underline-offset-4" href="/settings/portfolio">
             Manage websites
           </Link>
         </Step>
@@ -57,8 +57,8 @@ export function AccountDashboard({
               ? ` from ${status.connectedReporterCount === 1 ? '1 linked reporter' : `${status.connectedReporterCount} linked reporters`}`
               : ''}.{' '}
           </span>
-          <Link className="font-semibold text-primary underline underline-offset-4" href="/report">
-            Add a manual report
+          <Link prefetch={false} className="font-semibold text-primary underline underline-offset-4" href="/report">
+            Import from CLI
           </Link>
         </Step>
         <Step number="04" title="Publish and share" complete={status.state === 'public'}>

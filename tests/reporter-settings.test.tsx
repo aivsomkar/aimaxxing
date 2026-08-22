@@ -4,9 +4,9 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { ReporterSettings } from '../src/components/ReporterSettings'
 
 describe('ReporterSettings', () => {
-  it('shows the copyable link command when no reporter is linked', () => {
+  it('shows the copyable one-command import when no reporter is linked', () => {
     const html = renderToStaticMarkup(<ReporterSettings reporters={[]} />)
-    expect(html).toContain('npx aimaxxing link')
+    expect(html).toContain('npx aimaxxing@latest import')
     expect(html).toContain('Copy command')
   })
 

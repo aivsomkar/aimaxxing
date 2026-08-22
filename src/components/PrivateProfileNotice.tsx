@@ -43,7 +43,7 @@ export function PrivateProfileNoticeContent({ isPublic }: { isPublic: boolean | 
   return (
     <div className="mt-6 flex flex-col justify-between gap-3 border border-primary/30 bg-primary/10 px-4 py-3 text-sm sm:flex-row sm:items-center">
       <span>Your profile is private. Finish setup, preview your card, and publish when it is ready.</span>
-      <Link className="inline-flex min-h-11 shrink-0 items-center font-semibold text-primary underline underline-offset-4" href="/settings">
+      <Link prefetch={false} className="inline-flex min-h-11 shrink-0 items-center font-semibold text-primary underline underline-offset-4" href="/settings">
         Open dashboard
       </Link>
     </div>

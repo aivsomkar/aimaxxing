@@ -55,8 +55,8 @@ export function ManualReportForm({
           )}
           {state.status === 'success' && (
             <p className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
-              <Link className="font-semibold text-primary underline underline-offset-4" href={`/@${handle}`}>View private preview</Link>
-              <Link className="font-semibold text-primary underline underline-offset-4" href="/settings">Return to dashboard</Link>
+              <Link prefetch={false} className="font-semibold text-primary underline underline-offset-4" href={`/@${handle}`}>View private preview</Link>
+              <Link prefetch={false} className="font-semibold text-primary underline underline-offset-4" href="/settings">Return to dashboard</Link>
             </p>
           )}
         </div>
@@ -65,7 +65,7 @@ export function ManualReportForm({
           <button disabled={pending} className="min-h-11 bg-primary px-5 font-semibold text-primary-foreground disabled:opacity-50">
             {pending ? 'Saving…' : 'Save self-reported usage'}
           </button>
-          <Link className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline underline-offset-4" href="/settings">
+          <Link prefetch={false} className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline underline-offset-4" href="/settings">
             Back to dashboard
           </Link>
         </div>

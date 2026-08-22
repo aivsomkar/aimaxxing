@@ -15,7 +15,7 @@ export function ReporterSettings({
   onDeleteData?: FormAction
 }) {
   const [copied, setCopied] = React.useState(false)
-  const command = 'npx aimaxxing link'
+  const command = 'npx aimaxxing@latest import'
 
   async function copyCommand() {
     await navigator.clipboard.writeText(command)

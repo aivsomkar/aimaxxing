@@ -5,6 +5,7 @@ import { AccountDashboard } from '../src/components/AccountDashboard'
 
 const empty = {
   handle: 'aivsomkar',
+  xHandle: null,
   state: 'private-empty' as const,
   publicOptIn: false,
   usageCount: 0,
@@ -26,6 +27,8 @@ describe('AccountDashboard', () => {
     expect(html).toContain('Publish profile')
     expect(html).not.toContain('Unpublish profile')
     expect(html).toContain('disabled=""')
+    expect(html).toContain('Import from CLI')
+    expect(html).not.toContain('Add a manual report')
   })
 
   it('renders one unpublish action for a public account', () => {

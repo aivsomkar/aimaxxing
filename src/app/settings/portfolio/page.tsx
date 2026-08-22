@@ -27,7 +27,7 @@ export default async function PortfolioSettings({
   const handle = (session?.user as { handle?: string } | undefined)?.handle
   if (!handle) redirect('/signin?callbackUrl=/settings/portfolio')
 
-  const [user] = await db.select().from(users).where(eq(users.handle, handle))
+  const [user] = await db.select({ id: users.id }).from(users).where(eq(users.handle, handle))
   if (!user) redirect('/signin?callbackUrl=/settings/portfolio')
 
   const query = await searchParams
@@ -43,7 +43,7 @@ export default async function PortfolioSettings({
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
-      <Link href="/settings" className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-primary">
+      <Link prefetch={false} href="/settings" className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-primary">
         ← Settings
       </Link>
       <header className="mt-6 border-b border-border pb-7">

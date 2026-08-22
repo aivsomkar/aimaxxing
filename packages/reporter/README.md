@@ -5,6 +5,7 @@
 ## Commands
 
 ```bash
+npx aimaxxing@latest import
 npx aimaxxing scan
 npx aimaxxing link
 npx aimaxxing sync
@@ -12,11 +13,13 @@ npx aimaxxing status
 npx aimaxxing unlink
 ```
 
-`scan` is always offline. `link` scans and shows the proposed aggregate before its first network request. `sync` scans and asks before transmission. `--yes` skips only the transmission confirmation; it never bypasses unlink or data-deletion confirmations. Set `AIMAXXING_API_URL` to the web app origin while using a self-hosted or local instance.
+`import` is the recommended first-run flow: it scans supported local sources, previews the aggregate, opens AI Maxxing for browser approval, links the machine, and uploads the approved initial snapshot. The production API at `https://www.aimaxxing.lol` is used by default.
+
+`scan` is always offline. `link` links without uploading the first snapshot, while `sync` updates an existing linked reporter. `--yes` skips only the aggregate-transmission prompt; it never bypasses unlink or data-deletion confirmations. Set `AIMAXXING_API_URL` only while using a self-hosted or local instance.
 
 ## What leaves your machine
 
-Only daily aggregates are sent: reporter ID, submission ID, timestamp, pricing version, tool, model, UTC day, session count, input/output/cache token counts, estimated cost, and an Ed25519 signature. The server stores verified rows separately per linked machine so a new snapshot cannot overwrite manual reports or another machine.
+During browser linking, the reporter sends a generated machine ID, public signing key, and a generic operating-system label such as `macOS reporter`. It does not send the computer's hostname. After linking, only daily usage aggregates are sent: reporter ID, submission ID, timestamp, pricing version, tool, model, UTC day, session count, input/output/cache token counts, estimated cost, and an Ed25519 signature. The server stores verified rows separately per linked machine so a new snapshot cannot overwrite manual reports or another machine.
 
 Prompts, responses, source code, reasoning, commands, tool arguments, file paths, repository names, titles, attachments, raw log records, session IDs, and record IDs are never included in the payload. The local private key and machine identity are stored in a mode-`0600` config file on POSIX systems and are redacted by `status`.
 

@@ -13,6 +13,18 @@ export type ReporterConfig = {
   lastSyncAt: string | null
 }
 
+export type PendingReporterLink = {
+  deviceCode: string
+  userCode: string
+  verificationUrl: string
+  interval: number
+  expiresAt: string
+  machineId: string
+  privateKeyPem: string
+  publicKeyPem: string
+  apiBaseUrl: string
+}
+
 export class ReporterConfigError extends Error {
   constructor(message: string) {
     super(message)
@@ -29,6 +41,10 @@ export function defaultConfigPath(): string {
   return join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'aimaxxing', 'config.json')
 }
 
+export function defaultPendingLinkPath(): string {
+  return join(dirname(defaultConfigPath()), 'pending-link.json')
+}
+
 function validConfig(value: unknown): value is ReporterConfig {
   if (!value || typeof value !== 'object') return false
   const row = value as Record<string, unknown>
@@ -41,6 +57,23 @@ function validConfig(value: unknown): value is ReporterConfig {
     && (row.lastSyncAt === null || typeof row.lastSyncAt === 'string')
 }
 
+function validPendingLink(value: unknown): value is PendingReporterLink {
+  if (!value || typeof value !== 'object') return false
+  const row = value as Record<string, unknown>
+  return typeof row.deviceCode === 'string'
+    && typeof row.userCode === 'string'
+    && typeof row.verificationUrl === 'string'
+    && typeof row.interval === 'number'
+    && Number.isFinite(row.interval)
+    && row.interval > 0
+    && typeof row.expiresAt === 'string'
+    && Number.isFinite(Date.parse(row.expiresAt))
+    && typeof row.machineId === 'string'
+    && typeof row.privateKeyPem === 'string'
+    && typeof row.publicKeyPem === 'string'
+    && typeof row.apiBaseUrl === 'string'
+}
+
 export async function readConfig(path = defaultConfigPath()): Promise<ReporterConfig> {
   try {
     const value: unknown = JSON.parse(await readFile(path, 'utf8'))
@@ -48,7 +81,7 @@ export async function readConfig(path = defaultConfigPath()): Promise<ReporterCo
     return value
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      throw new ReporterConfigError('Reporter is not linked. Run `aimaxxing link` first.')
+      throw new ReporterConfigError('Reporter is not linked. Run `npx aimaxxing@latest import` first.')
     }
     throw new ReporterConfigError('Reporter configuration is corrupt or unreadable.')
   }
@@ -56,11 +89,15 @@ export async function readConfig(path = defaultConfigPath()): Promise<ReporterCo
 
 export async function writeConfig(config: ReporterConfig, path = defaultConfigPath()): Promise<void> {
   if (!validConfig(config)) throw new ReporterConfigError('Refusing to write invalid reporter configuration.')
+  await writePrivateJson(config, path)
+}
+
+async function writePrivateJson(value: unknown, path: string): Promise<void> {
   const folder = dirname(path)
   await mkdir(folder, { recursive: true, mode: 0o700 })
   const temporary = `${path}.tmp-${process.pid}-${randomBytes(8).toString('hex')}`
   try {
-    await writeFile(temporary, `${JSON.stringify(config, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 })
+    await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 })
     if (process.platform !== 'win32') await chmod(temporary, 0o600)
     await rename(temporary, path)
     if (process.platform !== 'win32') await chmod(path, 0o600)
@@ -68,6 +105,31 @@ export async function writeConfig(config: ReporterConfig, path = defaultConfigPa
     await rm(temporary, { force: true }).catch(() => undefined)
     throw error
   }
+}
+
+export async function readPendingLink(
+  path = defaultPendingLinkPath(),
+): Promise<PendingReporterLink | null> {
+  try {
+    const value: unknown = JSON.parse(await readFile(path, 'utf8'))
+    if (!validPendingLink(value)) throw new Error('shape')
+    return value
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+    throw new ReporterConfigError('Pending reporter link is corrupt or unreadable.')
+  }
+}
+
+export async function writePendingLink(
+  pending: PendingReporterLink,
+  path = defaultPendingLinkPath(),
+): Promise<void> {
+  if (!validPendingLink(pending)) throw new ReporterConfigError('Refusing to write invalid pending link.')
+  await writePrivateJson(pending, path)
+}
+
+export async function deletePendingLink(path = defaultPendingLinkPath()): Promise<void> {
+  await rm(path, { force: true })
 }
 
 export async function deleteConfig(path = defaultConfigPath()): Promise<void> {

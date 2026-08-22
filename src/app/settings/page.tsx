@@ -7,12 +7,10 @@ import {
   revokeUsageReporter,
   deleteUsageReporterData,
 } from './actions'
-import { eq } from 'drizzle-orm'
 import { db } from '@/db/client'
-import { users } from '@/db/schema'
 import { SocialSettings } from '@/components/SocialSettings'
 import { AccountDashboard } from '@/components/AccountDashboard'
-import { getAccountStatus } from '@/lib/account-status'
+import { getAccountStatusForHandle } from '@/lib/account-status'
 import { ReporterSettings } from '@/components/ReporterSettings'
 
 export default async function Settings({
@@ -25,9 +23,7 @@ export default async function Settings({
   const session = await auth()
   const handle = (session?.user as { handle?: string } | undefined)?.handle
   if (!handle) redirect('/signin?callbackUrl=/settings')
-  const [user] = await db.select().from(users).where(eq(users.handle, handle))
-  if (!user) redirect('/signin?callbackUrl=/settings')
-  const status = await getAccountStatus(db, user.id)
+  const status = await getAccountStatusForHandle(db, handle)
   if (!status) redirect('/signin?callbackUrl=/settings')
   const query = await searchParams
 
@@ -59,14 +55,14 @@ export default async function Settings({
         onDeleteData={deleteUsageReporterData}
       />
 
-      <SocialSettings xHandle={user.xHandle} onSave={saveXHandle} />
+      <SocialSettings xHandle={status.xHandle} onSave={saveXHandle} />
 
       <section className="space-y-2">
         <h2 className="font-semibold">Delete everything</h2>
         <p className="text-sm opacity-70">
           Removes manual and verified usage, linked reporter identities, selected websites, social handles,
           private imports, and GitHub output.
-          Type <strong>{user.handle}</strong> to confirm. This cannot be undone.
+          Type <strong>{status.handle}</strong> to confirm. This cannot be undone.
         </p>
         <form action={deleteAllData} className="flex max-w-lg flex-col gap-3 sm:flex-row">
           <label className="sr-only" htmlFor="delete-confirmation">Type your handle to confirm deletion</label>
@@ -76,7 +72,7 @@ export default async function Settings({
             required
             autoComplete="off"
             className="min-h-11 min-w-0 flex-1 border border-input bg-background px-3 font-mono text-sm"
-            placeholder={user.handle}
+            placeholder={status.handle}
           />
           <button className="min-h-11 border border-destructive px-4 text-destructive">Delete my data</button>
         </form>

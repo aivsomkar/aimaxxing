@@ -14,6 +14,7 @@ type Database = {
 
 export type AccountStatus = {
   handle: string
+  xHandle: string | null
   state: 'private-empty' | 'private-ready' | 'public'
   publicOptIn: boolean
   usageCount: number
@@ -39,13 +40,27 @@ export type ReporterSummary = {
   usageCount: number
 }
 
+type AccountStatusUser = {
+  id: number
+  handle: string
+  xHandle: string | null
+  publicOptIn: boolean
+}
+
 export async function getAccountStatus(
   database: Database,
   userId: number,
+  knownUser?: AccountStatusUser,
 ): Promise<AccountStatus | null> {
   const [userRows, manualUsageRows, verifiedUsageRows, reporterRows, projectRows, outputRows] = await Promise.all([
-    database.select({ handle: users.handle, publicOptIn: users.publicOptIn })
-      .from(users).where(eq(users.id, userId)),
+    knownUser
+      ? Promise.resolve([knownUser])
+      : database.select({
+        id: users.id,
+        handle: users.handle,
+        xHandle: users.xHandle,
+        publicOptIn: users.publicOptIn,
+      }).from(users).where(eq(users.id, userId)),
     database.select({ value: count() }).from(toolDays).where(eq(toolDays.userId, userId)),
     database.select({ reporterId: reporterToolDays.reporterId })
       .from(reporterToolDays).where(eq(reporterToolDays.userId, userId)),
@@ -102,6 +117,7 @@ export async function getAccountStatus(
 
   return {
     handle: user.handle,
+    xHandle: user.xHandle,
     state: user.publicOptIn && canPublish
       ? 'public'
       : canPublish ? 'private-ready' : 'private-empty',
@@ -118,4 +134,17 @@ export async function getAccountStatus(
       contributions: output.contributions,
     },
   }
+}
+
+export async function getAccountStatusForHandle(
+  database: Database,
+  handle: string,
+): Promise<AccountStatus | null> {
+  const [user] = await database.select({
+    id: users.id,
+    handle: users.handle,
+    xHandle: users.xHandle,
+    publicOptIn: users.publicOptIn,
+  }).from(users).where(eq(users.handle, handle))
+  return user ? getAccountStatus(database, user.id, user) : null
 }

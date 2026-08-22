@@ -1,14 +1,20 @@
 #!/usr/bin/env node
 import { randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
-import { hostname } from 'node:os'
+import { realpathSync } from 'node:fs'
+import { platform } from 'node:os'
 import { createInterface } from 'node:readline/promises'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import {
   deleteConfig,
+  deletePendingLink,
   readConfig,
+  readPendingLink,
   redactedConfig,
   writeConfig,
+  writePendingLink,
+  ReporterConfigError,
+  type PendingReporterLink,
   type ReporterConfig,
 } from './config.js'
 import {
@@ -20,11 +26,37 @@ import {
   type SignedReporterReport,
   type UnsignedReporterReport,
 } from './crypto.js'
-import { createReporterHttp, type LinkStatusResponse, type ReporterHttp } from './http.js'
+import {
+  createReporterHttp,
+  ReporterHttpError,
+  type LinkStatusResponse,
+  type ReporterHttp,
+} from './http.js'
 import { PRICING_VERSION } from './pricing.js'
 import { scanUsage, type CompletedScan } from './scan.js'
 
 type ReporterIdentity = ReturnType<typeof createReporterIdentity>
+
+export function defaultApiBaseUrl(
+  env: Record<string, string | undefined> = process.env,
+): string {
+  return (env.AIMAXXING_API_URL?.trim() || 'https://www.aimaxxing.lol').replace(/\/$/, '')
+}
+
+export function defaultMachineLabel(os: NodeJS.Platform = platform()): string {
+  if (os === 'darwin') return 'macOS reporter'
+  if (os === 'win32') return 'Windows reporter'
+  if (os === 'linux') return 'Linux reporter'
+  return 'AI usage reporter'
+}
+
+export function isMainModule(moduleUrl: string, executablePath: string): boolean {
+  try {
+    return realpathSync(fileURLToPath(moduleUrl)) === realpathSync(executablePath)
+  } catch {
+    return false
+  }
+}
 
 export type CliDependencies = {
   scanUsage: () => Promise<CompletedScan>
@@ -41,6 +73,9 @@ export type CliDependencies = {
   loadConfig: () => Promise<ReporterConfig>
   saveConfig: (config: ReporterConfig) => Promise<void>
   removeConfig: () => Promise<void>
+  loadPendingLink: () => Promise<PendingReporterLink | null>
+  savePendingLink: (pending: PendingReporterLink) => Promise<void>
+  removePendingLink: () => Promise<void>
   http: ReporterHttp
   stdout: (line: string) => void
   stderr: (line: string) => void
@@ -76,14 +111,17 @@ const defaultDependencies: CliDependencies = {
   sleep: (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
   now: () => new Date(),
   randomUUID,
-  machineLabel: hostname,
-  apiBaseUrl: () => process.env.AIMAXXING_API_URL ?? 'http://localhost:3000',
+  machineLabel: () => defaultMachineLabel(),
+  apiBaseUrl: () => defaultApiBaseUrl(),
   createIdentity: createReporterIdentity,
   signReport,
   signAction,
   loadConfig: () => readConfig(),
   saveConfig: (config) => writeConfig(config),
   removeConfig: () => deleteConfig(),
+  loadPendingLink: () => readPendingLink(),
+  savePendingLink: (pending) => writePendingLink(pending),
+  removePendingLink: () => deletePendingLink(),
   http: createReporterHttp(),
   stdout: (line) => process.stdout.write(`${line}\n`),
   stderr: (line) => process.stderr.write(`${line}\n`),
@@ -116,61 +154,111 @@ async function permissionToTransmit(
   return hasYes(args) || deps.confirm(message)
 }
 
-async function link(args: string[], deps: CliDependencies): Promise<number> {
-  const scanned = await deps.scanUsage()
-  printScan(scanned, deps.stdout)
-  if (!await permissionToTransmit(
-    args, deps, 'Send only these daily aggregates and start linking this machine?',
-  )) {
-    deps.stdout('Link canceled; nothing was transmitted or stored.')
-    return 1
+async function connect(
+  args: string[],
+  deps: CliDependencies,
+  currentAggregateApproved = false,
+): Promise<ReporterConfig | null> {
+  let pending = await deps.loadPendingLink()
+  if (pending && Date.parse(pending.expiresAt) <= deps.now().getTime()) {
+    await deps.removePendingLink()
+    pending = null
   }
 
-  const identity = deps.createIdentity()
-  const apiBaseUrl = deps.apiBaseUrl().replace(/\/$/, '')
-  const started = await deps.http.startLink(apiBaseUrl, {
-    publicKey: identity.publicKeyPem,
-    machineId: identity.machineId,
-    machineLabel: deps.machineLabel(),
-  })
-  deps.stdout(`Verification code: ${started.userCode}`)
-  deps.stdout(`Approve this machine: ${started.verificationUrl}`)
-  await deps.openBrowser(started.verificationUrl)
+  if (!pending) {
+    if (!currentAggregateApproved && !await permissionToTransmit(
+      args, deps, 'Send only these daily aggregates and start linking this machine?',
+    )) {
+      deps.stdout('Link canceled; nothing was transmitted or stored.')
+      return null
+    }
 
-  const interval = Math.max(1, Math.min(30, started.interval))
-  let elapsed = 0
+    const identity = deps.createIdentity()
+    const apiBaseUrl = deps.apiBaseUrl().replace(/\/$/, '')
+    const started = await deps.http.startLink(apiBaseUrl, {
+      publicKey: identity.publicKeyPem,
+      machineId: identity.machineId,
+      machineLabel: deps.machineLabel(),
+    })
+    pending = {
+      deviceCode: started.deviceCode,
+      userCode: started.userCode,
+      verificationUrl: started.verificationUrl,
+      interval: Math.max(1, Math.min(30, started.interval)),
+      expiresAt: new Date(deps.now().getTime() + started.expiresIn * 1_000).toISOString(),
+      machineId: identity.machineId,
+      privateKeyPem: identity.privateKeyPem,
+      publicKeyPem: identity.publicKeyPem,
+      apiBaseUrl,
+    }
+    await deps.savePendingLink(pending)
+  } else {
+    deps.stdout('Resuming the pending browser approval for this machine.')
+  }
+
+  deps.stdout(`Verification code: ${pending.userCode}`)
+  deps.stdout(`Approve this machine: ${pending.verificationUrl}`)
+  await deps.openBrowser(pending.verificationUrl)
+
+  const interval = pending.interval
+  const expiresIn = Math.max(0, Math.ceil(
+    (Date.parse(pending.expiresAt) - deps.now().getTime()) / 1_000,
+  ))
+  const expiresAt = Date.parse(pending.expiresAt)
+  const maxAttempts = Math.max(1, Math.ceil(expiresIn / interval))
+  let attempts = 0
   let status: LinkStatusResponse = { status: 'pending' }
-  while (elapsed < started.expiresIn) {
+  while (deps.now().getTime() < expiresAt && attempts < maxAttempts) {
     await deps.sleep(interval * 1_000)
-    elapsed += interval
-    status = await deps.http.pollLink(apiBaseUrl, started.deviceCode)
+    attempts += 1
+    try {
+      status = await deps.http.pollLink(pending.apiBaseUrl, pending.deviceCode)
+    } catch (error) {
+      const retryable = error instanceof ReporterHttpError
+        && (error.status === 0 || error.status === 429 || error.status >= 500)
+      if (!retryable) {
+        await deps.removePendingLink()
+        throw error
+      }
+      deps.stderr('Could not check approval yet; retrying until the link expires.')
+      continue
+    }
     if (status.status !== 'pending' && status.status !== 'pending_approval_consumption') break
   }
   if (status.status !== 'approved') {
+    await deps.removePendingLink()
     deps.stderr(status.status === 'denied' ? 'Link was denied.' : 'Link expired before approval.')
-    return 1
+    return null
   }
-  await deps.saveConfig({
+  const config: ReporterConfig = {
     reporterId: status.reporterId,
     handle: status.handle,
-    machineId: identity.machineId,
-    privateKeyPem: identity.privateKeyPem,
-    publicKeyPem: identity.publicKeyPem,
-    apiBaseUrl,
+    machineId: pending.machineId,
+    privateKeyPem: pending.privateKeyPem,
+    publicKeyPem: pending.publicKeyPem,
+    apiBaseUrl: pending.apiBaseUrl,
     lastSyncAt: null,
-  })
-  deps.stdout(`Linked to @${status.handle}. Run \`aimaxxing sync\` to transmit usage.`)
+  }
+  await deps.saveConfig(config)
+  await deps.removePendingLink()
+  return config
+}
+
+async function link(args: string[], deps: CliDependencies): Promise<number> {
+  const scanned = await deps.scanUsage()
+  printScan(scanned, deps.stdout)
+  const config = await connect(args, deps)
+  if (!config) return 1
+  deps.stdout(`Linked to @${config.handle}. Run \`aimaxxing sync\` to transmit usage.`)
   return 0
 }
 
-async function sync(args: string[], deps: CliDependencies): Promise<number> {
-  const config = await deps.loadConfig()
-  const scanned = await deps.scanUsage()
-  printScan(scanned, deps.stdout)
-  if (!await permissionToTransmit(args, deps, 'Send only these daily aggregates now?')) {
-    deps.stdout('Sync canceled; nothing was transmitted.')
-    return 1
-  }
+async function uploadScan(
+  config: ReporterConfig,
+  scanned: CompletedScan,
+  deps: CliDependencies,
+  successVerb: 'Imported' | 'Synced',
+): Promise<number> {
   const issuedAt = deps.now().toISOString()
   const report = deps.signReport({
     reporterId: config.reporterId,
@@ -181,8 +269,53 @@ async function sync(args: string[], deps: CliDependencies): Promise<number> {
   }, config.privateKeyPem)
   const result = await deps.http.submitReport(config.apiBaseUrl, report)
   await deps.saveConfig({ ...config, lastSyncAt: issuedAt })
-  deps.stdout(`Synced ${result.accepted} verified daily aggregate row(s).`)
+  deps.stdout(`${successVerb} ${result.accepted} verified daily aggregate row(s) to @${config.handle}.`)
   return 0
+}
+
+async function importUsage(args: string[], deps: CliDependencies): Promise<number> {
+  const scanned = await deps.scanUsage()
+  printScan(scanned, deps.stdout)
+  if (scanned.rows.length === 0) {
+    deps.stderr('No supported AI usage was found. Nothing was linked or uploaded.')
+    return 1
+  }
+
+  if (!await permissionToTransmit(args, deps, 'Import only these daily aggregates now?')) {
+    deps.stdout('Import canceled; nothing was transmitted.')
+    return 1
+  }
+
+  let existing: ReporterConfig | null = null
+  try {
+    existing = await deps.loadConfig()
+  } catch (error) {
+    if (!(error instanceof ReporterConfigError && error.message.startsWith('Reporter is not linked.'))) {
+      throw error
+    }
+  }
+  if (existing) {
+    return uploadScan(existing, scanned, deps, 'Imported')
+  }
+
+  const config = await connect(args, deps, true)
+  if (!config) return 1
+  return uploadScan(config, scanned, deps, 'Imported')
+}
+
+async function sync(args: string[], deps: CliDependencies): Promise<number> {
+  const config = await deps.loadConfig()
+  const scanned = await deps.scanUsage()
+  printScan(scanned, deps.stdout)
+  if (scanned.rows.length === 0) {
+    deps.stderr('No supported AI usage was found. Empty snapshots are not uploaded.')
+    return 1
+  }
+  if (!await permissionToTransmit(args, deps, 'Send only these daily aggregates now?')) {
+    deps.stdout('Sync canceled; nothing was transmitted.')
+    return 1
+  }
+  return uploadScan(config, scanned, deps, 'Synced')
 }
 
 async function status(deps: CliDependencies): Promise<number> {
@@ -211,7 +344,8 @@ async function unlink(deps: CliDependencies): Promise<number> {
 }
 
 function help(output: (line: string) => void) {
-  output('Usage: aimaxxing <scan|link|sync|status|unlink> [--yes]')
+  output('Usage: aimaxxing <import|scan|link|sync|status|unlink> [--yes]')
+  output('import scans, links this machine in your browser, and uploads the approved aggregate.')
   output('scan never uses the network. --yes skips only the aggregate-transmission prompt.')
 }
 
@@ -223,10 +357,11 @@ export async function runCli(args: string[], deps: CliDependencies = defaultDepe
       printScan(await deps.scanUsage(), deps.stdout)
       return 0
     }
-    if (command === 'link') return link(args, deps)
-    if (command === 'sync') return sync(args, deps)
-    if (command === 'status') return status(deps)
-    if (command === 'unlink') return unlink(deps)
+    if (command === 'import') return await importUsage(args, deps)
+    if (command === 'link') return await link(args, deps)
+    if (command === 'sync') return await sync(args, deps)
+    if (command === 'status') return await status(deps)
+    if (command === 'unlink') return await unlink(deps)
     deps.stderr(`Unknown command: ${command}`)
     help(deps.stderr)
     return 1
@@ -236,6 +371,6 @@ export async function runCli(args: string[], deps: CliDependencies = defaultDepe
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && isMainModule(import.meta.url, process.argv[1])) {
   process.exitCode = await runCli(process.argv.slice(2))
 }

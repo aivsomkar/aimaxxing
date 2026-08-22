@@ -2,8 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { PGlite } from '@electric-sql/pglite'
 import { drizzle } from 'drizzle-orm/pglite'
 import { migrate } from 'drizzle-orm/pglite/migrator'
+import { eq } from 'drizzle-orm'
 import * as schema from '../src/db/schema'
-import { getAccountStatus } from '../src/lib/account-status'
+import { getAccountStatus, getAccountStatusForHandle } from '../src/lib/account-status'
 
 let client: PGlite
 let database: ReturnType<typeof drizzle<typeof schema>>
@@ -28,10 +29,25 @@ async function createUser(publicOptIn = false) {
 }
 
 describe('getAccountStatus', () => {
+  it('loads private account status directly from an authenticated handle', async () => {
+    const user = await createUser()
+    await database.update(schema.users).set({ xHandle: '@handle_lookup' })
+      .where(eq(schema.users.id, user.id))
+
+    await expect(getAccountStatusForHandle(database, user.handle)).resolves.toMatchObject({
+      handle: user.handle,
+      xHandle: '@handle_lookup',
+    })
+    await expect(getAccountStatusForHandle(database, 'missing-handle')).resolves.toBeNull()
+  })
+
   it('identifies a private empty account with missing GitHub sync', async () => {
     const user = await createUser()
+    await database.update(schema.users).set({ xHandle: '@private_handle' })
+      .where(eq(schema.users.id, user.id))
     await expect(getAccountStatus(database, user.id)).resolves.toMatchObject({
       handle: user.handle,
+      xHandle: '@private_handle',
       state: 'private-empty',
       publicOptIn: false,
       usageCount: 0,

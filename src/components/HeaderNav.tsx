@@ -31,8 +31,8 @@ export function HeaderNav({
           <span aria-label="Loading account" className={`${linkClass} w-14 animate-pulse`} />
         ) : viewer ? (
           <>
-            <Link href={`/@${viewer.handle}`} className={linkClass}>@{viewer.handle}</Link>
-            <Link href="/settings" className={linkClass}>Settings</Link>
+            <Link prefetch={false} href={`/@${viewer.handle}`} className={linkClass}>@{viewer.handle}</Link>
+            <Link prefetch={false} href="/settings" className={linkClass}>Settings</Link>
             <form action={onSignOut}>
               <button className={`${linkClass} cursor-pointer bg-transparent`} type="submit">Sign out</button>
             </form>
