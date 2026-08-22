@@ -91,7 +91,7 @@ because `src/db/client.ts` imports it at top level and production code imports t
 - [ ] **Step 2: Create `src/db/schema.ts`**
 
 ```ts
-import { pgTable, text, integer, boolean, timestamp, date, numeric, uniqueIndex, serial } from 'drizzle-orm/pg-core'
+import { pgTable, text, integer, bigint, boolean, timestamp, date, numeric, uniqueIndex, serial } from 'drizzle-orm/pg-core'
 
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
@@ -114,10 +114,12 @@ export const toolDays = pgTable('tool_days', {
   model: text('model').notNull(),
   day: date('day').notNull(),
   sessions: integer('sessions').notNull().default(0),
-  tokensIn: integer('tokens_in').notNull().default(0),
-  tokensOut: integer('tokens_out').notNull().default(0),
-  cacheRead: integer('cache_read').notNull().default(0),
-  cacheWrite: integer('cache_write').notNull().default(0),
+  // bigint, not integer: int4 caps at 2,147,483,647 tokens. Cache-read counts alone
+  // pass that in normal use, and the collective rollup passes it far sooner.
+  tokensIn: bigint('tokens_in', { mode: 'number' }).notNull().default(0),
+  tokensOut: bigint('tokens_out', { mode: 'number' }).notNull().default(0),
+  cacheRead: bigint('cache_read', { mode: 'number' }).notNull().default(0),
+  cacheWrite: bigint('cache_write', { mode: 'number' }).notNull().default(0),
   costUsd: numeric('cost_usd', { precision: 12, scale: 4 }).notNull().default('0'),
   source: text('source').notNull(),        // 'reporter' | 'manual'
   verified: boolean('verified').notNull().default(false),
@@ -136,10 +138,12 @@ export const githubStats = pgTable('github_stats', {
 
 export const collectiveDays = pgTable('collective_days', {
   day: date('day').primaryKey(),
-  tokensIn: integer('tokens_in').notNull().default(0),
-  tokensOut: integer('tokens_out').notNull().default(0),
-  cacheRead: integer('cache_read').notNull().default(0),
-  cacheWrite: integer('cache_write').notNull().default(0),
+  // bigint is mandatory here: this is the homepage hero counter. One day's collective
+  // tokens across a few hundred developers exceeds int4.
+  tokensIn: bigint('tokens_in', { mode: 'number' }).notNull().default(0),
+  tokensOut: bigint('tokens_out', { mode: 'number' }).notNull().default(0),
+  cacheRead: bigint('cache_read', { mode: 'number' }).notNull().default(0),
+  cacheWrite: bigint('cache_write', { mode: 'number' }).notNull().default(0),
   costUsd: numeric('cost_usd', { precision: 14, scale: 4 }).notNull().default('0'),
 })
 
@@ -963,7 +967,12 @@ const MAX_TOKENS_PER_DAY = 10_000_000_000
 const dayRow = z.object({
   tool: z.string().min(1).max(60),
   model: z.string().min(1).max(60),
-  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  // Format AND calendar validity: "2026-13-99" matches the regex but the DB rejects it,
+  // which would surface as an unhandled 500 rather than a clean 400.
+  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((d) => {
+    const parsed = new Date(`${d}T00:00:00Z`)
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === d
+  }, 'not a real calendar date'),
   sessions: z.number().int().min(0).max(100_000),
   tokensIn: z.number().int().min(0).max(MAX_TOKENS_PER_DAY),
   tokensOut: z.number().int().min(0).max(MAX_TOKENS_PER_DAY),
@@ -981,6 +990,8 @@ export type NormalizedRow = {
   costUsd: string; source: string; verified: boolean
 }
 
+// Returns '' for input that is entirely non-ASCII or symbols ('★★★', '日本語').
+// Callers must reject that rather than inserting a blank bucket.
 const slug = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9.+-]+/g, '-').replace(/^-+|-+$/g, '')
 
 export function normalizeReport(p: ReportPayload, source: 'reporter' | 'manual'): NormalizedRow[] {
