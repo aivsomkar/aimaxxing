@@ -1,13 +1,22 @@
 import { redirect } from 'next/navigation'
 import { auth, signIn } from '@/auth'
 
-export default async function SignInPage() {
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ callbackUrl?: string }>
+}) {
+  const query = await searchParams
+  const requested = query.callbackUrl ?? '/settings'
+  const redirectTo = requested.startsWith('/') && !requested.startsWith('//')
+    ? requested
+    : '/settings'
   const session = await auth()
-  if ((session?.user as { handle?: string } | undefined)?.handle) redirect('/settings')
+  if ((session?.user as { handle?: string } | undefined)?.handle) redirect(redirectTo)
 
   async function login() {
     'use server'
-    await signIn('github', { redirectTo: '/settings' })
+    await signIn('github', { redirectTo })
   }
 
   return (

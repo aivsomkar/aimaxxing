@@ -70,6 +70,39 @@ export async function approveLinkSession(
   return approved ?? null
 }
 
+export async function findLinkSessionByUserCode(
+  database: Database,
+  userCode: string,
+  now = new Date(),
+) {
+  const hash = hashReporterSecret(userCode)
+  const [link] = await database.select().from(reporterLinkSessions)
+    .where(eq(reporterLinkSessions.userCodeHash, hash))
+  if (!link || !secretMatches(userCode, link.userCodeHash) || link.expiresAt <= now
+    || link.approvedAt || link.deniedAt || link.consumedAt) return null
+  return link
+}
+
+export async function denyLinkSession(
+  database: Database,
+  userCode: string,
+  userId: number,
+  now = new Date(),
+): Promise<boolean> {
+  const link = await findLinkSessionByUserCode(database, userCode, now)
+  if (!link || link.approvedAt) return false
+  const rows = await database.update(reporterLinkSessions).set({
+    userId,
+    deniedAt: now,
+  }).where(and(
+    eq(reporterLinkSessions.id, link.id),
+    isNull(reporterLinkSessions.approvedAt),
+    isNull(reporterLinkSessions.deniedAt),
+    isNull(reporterLinkSessions.consumedAt),
+  )).returning({ id: reporterLinkSessions.id })
+  return rows.length === 1
+}
+
 export async function getLinkStatus(database: Database, deviceCode: string, now = new Date()) {
   const hash = hashReporterSecret(deviceCode)
   const [link] = await database.select().from(reporterLinkSessions)
