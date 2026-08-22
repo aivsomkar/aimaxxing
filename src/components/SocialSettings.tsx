@@ -25,9 +25,9 @@ export function SocialSettings({
           placeholder="@username"
           autoComplete="off"
           maxLength={40}
-          className="min-w-0 flex-1 border border-input bg-background px-3 py-2.5 font-mono text-sm outline-none focus:border-primary"
+          className="min-w-0 flex-1 border border-input bg-background px-3 py-2.5 font-mono text-sm focus-visible:border-primary"
         />
-        <button className="bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground">
+        <button className="min-h-11 bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground">
           Save X handle
         </button>
       </form>

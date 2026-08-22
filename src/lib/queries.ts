@@ -1,7 +1,8 @@
-import { asc, eq, gte } from 'drizzle-orm'
+import { and, asc, countDistinct, eq, gte, sql } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { users, toolDays, githubStats, portfolioProjects } from '@/db/schema'
 import type { BurnRow } from './collective'
+import type { CollectiveTotals } from './collective'
 import type { Entrant } from './boards'
 import type { ToolDepth } from './index-math'
 import { canAppearOnBoards, hasShowcaseContent } from './consent'
@@ -44,6 +45,66 @@ export async function getCollectiveRows(window: Window, today = new Date()): Pro
     cacheRead: r.cacheRead, cacheWrite: r.cacheWrite,
     sponsored: r.sponsored, verified: r.verified,
   }))
+}
+
+export type CollectiveSummary = {
+  totals: CollectiveTotals
+  dayTotals: CollectiveTotals
+  modelShares: { model: string; costUsd: number; share: number }[]
+  developers: number
+}
+
+const aggregateSelection = {
+  costUsd: sql<string>`coalesce(sum(case when ${toolDays.sponsored} = false then ${toolDays.costUsd} else 0 end), 0)`,
+  tokensIn: sql<string>`coalesce(sum(case when ${toolDays.sponsored} = false then ${toolDays.tokensIn} else 0 end), 0)`,
+  tokensOut: sql<string>`coalesce(sum(case when ${toolDays.sponsored} = false then ${toolDays.tokensOut} else 0 end), 0)`,
+  cacheRead: sql<string>`coalesce(sum(case when ${toolDays.sponsored} = false then ${toolDays.cacheRead} else 0 end), 0)`,
+  cacheWrite: sql<string>`coalesce(sum(case when ${toolDays.sponsored} = false then ${toolDays.cacheWrite} else 0 end), 0)`,
+}
+
+function totalsFrom(row: Record<string, unknown> | undefined): CollectiveTotals {
+  const tokensIn = Number(row?.tokensIn ?? 0)
+  const tokensOut = Number(row?.tokensOut ?? 0)
+  const cacheRead = Number(row?.cacheRead ?? 0)
+  const cacheWrite = Number(row?.cacheWrite ?? 0)
+  return {
+    costUsd: Number(row?.costUsd ?? 0),
+    tokensIn,
+    tokensOut,
+    cacheRead,
+    cacheWrite,
+    tokensTotal: tokensIn + tokensOut + cacheRead + cacheWrite,
+  }
+}
+
+export async function getCollectiveSummary(today = new Date()): Promise<CollectiveSummary> {
+  const dayCutoff = cutoffFor('day', today)!
+  const [allRows, dayRows, modelRows, developerRows] = await Promise.all([
+    db.select(aggregateSelection).from(toolDays),
+    db.select(aggregateSelection).from(toolDays).where(gte(toolDays.day, dayCutoff)),
+    db.select({
+      model: toolDays.model,
+      costUsd: sql<string>`coalesce(sum(${toolDays.costUsd}), 0)`,
+    }).from(toolDays)
+      .where(and(eq(toolDays.verified, true), eq(toolDays.sponsored, false)))
+      .groupBy(toolDays.model),
+    db.select({ value: countDistinct(toolDays.userId) })
+      .from(toolDays)
+      .innerJoin(users, eq(users.id, toolDays.userId))
+      .where(eq(users.publicOptIn, true)),
+  ])
+  const modelCosts = modelRows
+    .map((row) => ({ model: row.model, costUsd: Number(row.costUsd) }))
+    .sort((a, b) => b.costUsd - a.costUsd || a.model.localeCompare(b.model))
+  const verifiedSpend = modelCosts.reduce((total, row) => total + row.costUsd, 0)
+  return {
+    totals: totalsFrom(allRows[0]),
+    dayTotals: totalsFrom(dayRows[0]),
+    modelShares: verifiedSpend > 0
+      ? modelCosts.map((row) => ({ ...row, share: row.costUsd / verifiedSpend }))
+      : [],
+    developers: Number(developerRows[0]?.value ?? 0),
+  }
 }
 
 type EntrantCandidate = Entrant & { userId: number; publicOptIn: boolean }

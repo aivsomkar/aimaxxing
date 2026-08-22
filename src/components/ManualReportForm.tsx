@@ -95,7 +95,7 @@ function Field({
         name={name}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? errorId : undefined}
-        className="min-h-11 min-w-0 border border-input bg-background px-3 outline-none focus:border-primary aria-[invalid=true]:border-destructive"
+        className="min-h-11 min-w-0 border border-input bg-background px-3 focus-visible:border-primary aria-[invalid=true]:border-destructive"
       />
       {error && <span id={errorId} className="text-xs text-destructive">{error}</span>}
     </label>

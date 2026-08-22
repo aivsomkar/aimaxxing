@@ -16,11 +16,13 @@ import {
 import {
   cutoffFor,
   getCollectiveRows,
+  getCollectiveSummary,
   getEntrants,
   getProfileForViewer,
   getProfileRecord,
   getPublicProfile,
 } from '../src/lib/queries'
+import { collectiveTotals, shareByModel } from '../src/lib/collective'
 
 async function reset() {
   await db.delete(portfolioImportSessions)
@@ -47,6 +49,56 @@ describe('cutoffFor', () => {
 
   it("returns 30 days back for 'month', crossing a month/year boundary", () => {
     expect(cutoffFor('month', today)).toBe('2025-12-11')
+  })
+})
+
+describe('getCollectiveSummary', () => {
+  beforeEach(reset)
+
+  it('matches row helpers while counting only public accounts with usage as developers', async () => {
+    const [publicUser] = await db.insert(users).values({
+      githubId: 'summary-public', handle: 'summary-public', publicOptIn: true,
+    }).returning()
+    const [privateUser] = await db.insert(users).values({
+      githubId: 'summary-private', handle: 'summary-private', publicOptIn: false,
+    }).returning()
+    const [publicEmpty] = await db.insert(users).values({
+      githubId: 'summary-empty', handle: 'summary-empty', publicOptIn: true,
+    }).returning()
+    await db.insert(portfolioProjects).values({
+      userId: publicEmpty.id, source: 'manual', title: 'Project only', liveUrl: 'https://project-only.example',
+    })
+    await db.insert(toolDays).values([
+      {
+        userId: publicUser.id, tool: 'claude-code', model: 'opus', day: '2026-08-22',
+        sessions: 20, tokensIn: 100, tokensOut: 50, cacheRead: 25, cacheWrite: 5,
+        costUsd: '10.0000', source: 'reporter', verified: true,
+      },
+      {
+        userId: privateUser.id, tool: 'codex', model: 'gpt-5', day: '2026-08-22',
+        sessions: 2, tokensIn: 20, tokensOut: 10, cacheRead: 0, cacheWrite: 0,
+        costUsd: '5.0000', source: 'manual', verified: false,
+      },
+      {
+        userId: publicUser.id, tool: 'sponsored', model: 'opus', day: '2026-08-22',
+        sessions: 1, tokensIn: 999, tokensOut: 999, cacheRead: 999, cacheWrite: 999,
+        costUsd: '999.0000', source: 'reporter', verified: true, sponsored: true,
+      },
+      {
+        userId: publicUser.id, tool: 'older', model: 'sonnet', day: '2026-01-01',
+        sessions: 1, tokensIn: 4, tokensOut: 3, cacheRead: 2, cacheWrite: 1,
+        costUsd: '2.0000', source: 'reporter', verified: true,
+      },
+    ])
+
+    const now = new Date('2026-08-23T00:00:00Z')
+    const summary = await getCollectiveSummary(now)
+    const allRows = await getCollectiveRows('all', now)
+    const dayRows = await getCollectiveRows('day', now)
+    expect(summary.totals).toEqual(collectiveTotals(allRows))
+    expect(summary.dayTotals).toEqual(collectiveTotals(dayRows))
+    expect(summary.modelShares).toEqual(shareByModel(allRows))
+    expect(summary.developers).toBe(1)
   })
 })
 

@@ -16,22 +16,22 @@ export function Board({
       <h2 className="mb-3 text-sm uppercase tracking-widest text-muted-foreground">{title}</h2>
       <ol className="divide-y divide-border">
         {entries.slice(0, 25).map((e, i) => (
-          <li key={e.handle} className="flex items-center gap-3 py-2">
-            <span className="w-8 font-mono tabular-nums text-muted-foreground">{i + 1}</span>
+          <li key={e.handle} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3">
+            <span className="font-mono tabular-nums text-muted-foreground">{i + 1}</span>
             <div className="min-w-0 flex-1">
-              <a href={`/@${e.handle}`} className="block truncate hover:underline">
+              <a href={`/@${e.handle}`} className="inline-flex min-h-11 max-w-full items-center truncate hover:underline">
                 @{e.handle}
               </a>
               {e.xHandle && <XHandleLink handle={e.xHandle} className="mt-0.5" />}
             </div>
-            <span className="text-xs text-muted-foreground">
-              <span className="font-mono tabular-nums">{e.toolCount}</span>{' '}
-              {e.toolCount === 1 ? 'tool' : 'tools'}
-            </span>
-            <span title={e.verified ? 'Verified' : 'Self-reported'}>
-              {e.verified ? '✅' : '🔶'}
-            </span>
-            <span className="w-28 text-right font-mono tabular-nums">{format(e.value)}</span>
+            <span className="text-right font-mono tabular-nums">{format(e.value)}</span>
+            <div className="col-start-2 col-end-4 flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
+              <span><span className="font-mono tabular-nums">{e.toolCount}</span>{' '}{e.toolCount === 1 ? 'tool' : 'tools'}</span>
+              <span title={e.verified ? 'Verified usage' : 'Includes self-reported usage'}>
+                <span aria-hidden="true">{e.verified ? '✅' : '🔶'}</span>{' '}
+                {e.verified ? 'Verified' : 'Self-reported'}
+              </span>
+            </div>
           </li>
         ))}
         {entries.length === 0 && (

@@ -32,18 +32,18 @@ export function CollectiveCounter({ initial }: { initial: Totals }) {
   }, [])
 
   return (
-    <section className="py-16 text-center">
+    <section className="py-16 text-center" aria-labelledby="collective-counter-heading">
       {/* Tokens lead: at launch the token count is in the billions and reads
           as enormous, while the dollar figure is small. Tokens are sized
           larger than dollars on purpose. */}
-      <div className="font-mono text-4xl tracking-tight tabular-nums sm:text-6xl">
+      <div className="font-mono text-4xl tracking-tight tabular-nums sm:text-6xl" aria-live="off">
         {Math.round(t.tokensTotal).toLocaleString()}
       </div>
-      <div className="mt-1 text-xs uppercase tracking-[0.3em] text-muted-foreground">
+      <h1 id="collective-counter-heading" className="mt-1 text-xs uppercase tracking-[0.3em] text-muted-foreground">
         tokens burned
-      </div>
+      </h1>
 
-      <div className="mt-8 font-mono text-3xl tabular-nums text-primary sm:text-5xl">
+      <div className="mt-8 font-mono text-3xl tabular-nums text-primary sm:text-5xl" aria-live="off">
         ${formatUsd(t.costUsd + drift)}
       </div>
       <div className="mt-3 text-sm text-muted-foreground">

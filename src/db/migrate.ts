@@ -5,8 +5,9 @@ import { migrate as migratePglite } from 'drizzle-orm/pglite/migrator'
 import { PGlite } from '@electric-sql/pglite'
 import { Pool } from 'pg'
 import { mkdirSync } from 'node:fs'
+import { normalizeDatabaseUrl } from '@/lib/database-url'
 
-const url = process.env.DATABASE_URL ?? 'pglite://.data/pg'
+const url = normalizeDatabaseUrl(process.env.DATABASE_URL ?? 'pglite://.data/pg')
 
 async function main() {
   if (url.startsWith('pglite://')) {

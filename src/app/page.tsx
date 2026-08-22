@@ -1,15 +1,11 @@
-import { eq } from 'drizzle-orm'
 import Link from 'next/link'
 import { auth } from '@/auth'
 import { LiveStatBar } from '@/components/LiveStatBar'
 import { CollectiveCounter } from '@/components/CollectiveCounter'
 import { ModelSplit } from '@/components/ModelSplit'
 import { Board } from '@/components/Board'
-import { getCollectiveRows, getEntrants, getProfileForViewer } from '@/lib/queries'
-import { collectiveTotals, shareByModel } from '@/lib/collective'
+import { getCollectiveSummary, getEntrants, getProfileForViewer } from '@/lib/queries'
 import { rankBoard } from '@/lib/boards'
-import { db } from '@/db/client'
-import { users } from '@/db/schema'
 import { formatUsd } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
@@ -20,18 +16,14 @@ export default async function Home() {
   const viewerProfile = viewerHandle
     ? await getProfileForViewer(viewerHandle, viewerHandle)
     : null
-  const rows = await getCollectiveRows('all')
-  const dayRows = await getCollectiveRows('day')
-  const all = collectiveTotals(rows)
-  const day = collectiveTotals(dayRows)
-  const devs = await db.select({ h: users.handle }).from(users).where(eq(users.publicOptIn, true))
+  const summary = await getCollectiveSummary()
   const entrants = await getEntrants('all')
 
   return (
     <>
       {/* The live proof comes before the leaderboard: LiveStatBar, then the
           counter, then the split, then the boards — see DESIGN.md. */}
-      <LiveStatBar developers={devs.length} tokensTotal={all.tokensTotal} costUsd={all.costUsd} />
+      <LiveStatBar developers={summary.developers} tokensTotal={summary.totals.tokensTotal} costUsd={summary.totals.costUsd} />
 
       <main className="mx-auto max-w-4xl px-6">
         {viewerHandle && !viewerProfile?.isPublic && (
@@ -44,14 +36,14 @@ export default async function Home() {
         )}
         <CollectiveCounter
           initial={{
-            costUsd: all.costUsd,
-            tokensTotal: all.tokensTotal,
-            last24hCostUsd: day.costUsd,
-            developers: devs.length,
+            costUsd: summary.totals.costUsd,
+            tokensTotal: summary.totals.tokensTotal,
+            last24hCostUsd: summary.dayTotals.costUsd,
+            developers: summary.developers,
           }}
         />
 
-        <ModelSplit shares={shareByModel(rows)} />
+        <ModelSplit shares={summary.modelShares} />
 
         <div className="grid gap-10 py-12 sm:grid-cols-2">
           <Board

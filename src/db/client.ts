@@ -4,8 +4,9 @@ import { PGlite } from '@electric-sql/pglite'
 import { Pool } from 'pg'
 import { mkdirSync } from 'node:fs'
 import * as schema from './schema'
+import { normalizeDatabaseUrl } from '@/lib/database-url'
 
-const url = process.env.DATABASE_URL ?? 'pglite://.data/pg'
+const url = normalizeDatabaseUrl(process.env.DATABASE_URL ?? 'pglite://.data/pg')
 
 function make() {
   if (url.startsWith('pglite://')) {

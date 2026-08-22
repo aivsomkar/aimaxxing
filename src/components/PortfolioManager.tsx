@@ -56,14 +56,14 @@ export function PortfolioManager({
         </p>
         <div className="mt-5 flex flex-wrap gap-3">
           <form action={actions?.startGitHubImport}>
-            <button className="border border-foreground bg-foreground px-4 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-80">
+            <button className="min-h-11 border border-foreground bg-foreground px-4 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-80">
               Import from GitHub
             </button>
           </form>
           {vercelConfigured ? (
             <a
               href="/api/integrations/vercel/start"
-              className="border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:border-primary hover:text-primary"
+              className="inline-flex min-h-11 items-center border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:border-primary hover:text-primary"
             >
               Connect Vercel
             </a>
@@ -108,7 +108,7 @@ export function PortfolioManager({
                   </label>
                 ))}
               </div>
-              <button className="mt-4 bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground">
+              <button className="mt-4 min-h-11 bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground">
                 Add selected
               </button>
             </form>
@@ -156,7 +156,7 @@ export function PortfolioManager({
                     <Field label="Live URL" name="liveUrl" defaultValue={project.liveUrl} required />
                     <Field label="Description" name="description" defaultValue={project.description ?? ''} />
                     <Field label="Repository URL" name="repositoryUrl" defaultValue={project.repositoryUrl ?? ''} />
-                    <button className="justify-self-start border border-border px-3 py-2 text-xs font-semibold hover:border-primary hover:text-primary">
+                    <button className="min-h-11 justify-self-start border border-border px-3 py-2 text-xs font-semibold hover:border-primary hover:text-primary">
                       Save changes
                     </button>
                   </form>
@@ -164,16 +164,16 @@ export function PortfolioManager({
                     <form action={actions?.reorderProjects}>
                       <input type="hidden" name="projectId" value={project.id} />
                       <input type="hidden" name="direction" value="up" />
-                      <button disabled={index === 0} aria-label={`Move ${project.title} up`} className="border border-border px-2 py-1 disabled:opacity-25">↑</button>
+                      <button disabled={index === 0} aria-label={`Move ${project.title} up`} className="min-h-11 min-w-11 border border-border px-2 py-1 disabled:opacity-25">↑</button>
                     </form>
                     <form action={actions?.reorderProjects}>
                       <input type="hidden" name="projectId" value={project.id} />
                       <input type="hidden" name="direction" value="down" />
-                      <button disabled={index === projects.length - 1} aria-label={`Move ${project.title} down`} className="border border-border px-2 py-1 disabled:opacity-25">↓</button>
+                      <button disabled={index === projects.length - 1} aria-label={`Move ${project.title} down`} className="min-h-11 min-w-11 border border-border px-2 py-1 disabled:opacity-25">↓</button>
                     </form>
                     <form action={actions?.removeProject}>
                       <input type="hidden" name="projectId" value={project.id} />
-                      <button aria-label={`Remove ${project.title}`} className="border border-destructive px-2 py-1 text-destructive">×</button>
+                      <button aria-label={`Remove ${project.title}`} className="min-h-11 min-w-11 border border-destructive px-2 py-1 text-destructive">×</button>
                     </form>
                   </div>
                 </div>
@@ -192,7 +192,7 @@ export function PortfolioManager({
           <Field label="Live URL" name="liveUrl" placeholder="https://your-project.com" required />
           <Field label="Description · optional" name="description" placeholder="What did you build?" />
           <Field label="Repository URL · optional" name="repositoryUrl" placeholder="https://github.com/you/repo" />
-          <button className="justify-self-start bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground">
+          <button className="min-h-11 justify-self-start bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground">
             Add to profile
           </button>
         </form>
@@ -207,7 +207,7 @@ function Field({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> 
       {label}
       <input
         {...props}
-        className="min-w-0 border border-input bg-background px-3 py-2.5 text-sm font-normal outline-none focus:border-primary"
+        className="min-w-0 border border-input bg-background px-3 py-2.5 text-sm font-normal focus-visible:border-primary"
       />
     </label>
   )
