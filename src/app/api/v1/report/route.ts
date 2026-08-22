@@ -23,7 +23,9 @@ export async function POST(req: Request) {
   try {
     await writeReport(db, user.id, rows)
   } catch (err) {
-    return NextResponse.json({ error: 'failed to write report', message: String(err) }, { status: 500 })
+    // Log the real error server-side; never echo driver/constraint text to the caller.
+    console.error('writeReport failed', err)
+    return NextResponse.json({ error: 'failed to write report' }, { status: 500 })
   }
   return NextResponse.json({ ok: true, rows: rows.length })
 }
