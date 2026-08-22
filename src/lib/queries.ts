@@ -134,6 +134,7 @@ export type ProfileRecord = {
   activeRepos: number
   contributions: number
   anyUnverified: boolean
+  anyVerified: boolean
   projects: PublicPortfolioProject[]
 }
 
@@ -185,6 +186,7 @@ export async function getProfileRecord(handle: string): Promise<ProfileRecord | 
   const tokenTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 }
   let costUsd = 0
   let anyUnverified = false
+  let anyVerified = false
   for (const r of rows) {
     const c = Number(r.costUsd)
     const tokens = r.tokensIn + r.tokensOut + r.cacheRead + r.cacheWrite
@@ -195,6 +197,7 @@ export async function getProfileRecord(handle: string): Promise<ProfileRecord | 
     tokenTotals.cacheWrite += r.cacheWrite
     tokenTotals.total += tokens
     if (!r.verified) anyUnverified = true
+    if (r.verified) anyVerified = true
     const t = tools.find((x) => x.tool === r.tool)
     if (t) { t.sessions += r.sessions; t.costUsd += c }
     else tools.push({ tool: r.tool, sessions: r.sessions, costUsd: c })
@@ -215,7 +218,7 @@ export async function getProfileRecord(handle: string): Promise<ProfileRecord | 
     mergedPrs: s?.mergedPrs ?? 0,
     activeRepos: s?.activeRepos ?? 0,
     contributions: s?.contributions ?? 0,
-    anyUnverified, projects,
+    anyUnverified, anyVerified, projects,
   }
 }
 

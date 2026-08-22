@@ -11,6 +11,8 @@ import {
 import { formatUsd } from '@/lib/format'
 import { PortfolioGrid } from '@/components/PortfolioGrid'
 import { XHandleLink } from '@/components/XHandleLink'
+import { ProfileShareActions } from '@/components/ProfileShareActions'
+import { buildShareCardData } from '@/lib/share-card'
 
 // NOTE for future editors: this directory MUST be named `[handle]`, not
 // `@[handle]`. A leading `@` in a Next.js route segment name declares a
@@ -40,6 +42,10 @@ export default async function Profile({ params }: { params: Promise<{ handle: st
   const units = Math.max(0, p.mergedPrs) + Math.max(0, p.contributions) / CONTRIBUTIONS_PER_UNIT
   const rawOutput = 2 * Math.sqrt(units)
   const outputCapped = rawOutput > OUTPUT_CAP
+  const card = buildShareCardData(p)
+  const cardUrl = isPublic
+    ? `/api/v1/profile/${encodeURIComponent(p.user.handle)}/card`
+    : '/api/v1/me/card'
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
@@ -81,6 +87,22 @@ export default async function Profile({ params }: { params: Promise<{ handle: st
           <div className="text-xs uppercase tracking-widest text-muted-foreground">Index</div>
         </div>
       </header>
+
+      <section className="mt-8" aria-labelledby="profile-card-heading">
+        <h2 id="profile-card-heading" className="sr-only">AI Maxxing profile card</h2>
+        {/* eslint-disable-next-line @next/next/no-img-element -- dynamic authenticated image endpoint */}
+        <img
+          src={cardUrl}
+          alt={`AI Maxxing card for @${p.user.handle}: Index ${card.index}, ${card.toolLabel}, ${card.projectLabel}, ${card.tokens} tokens`}
+          className="aspect-[1200/630] w-full border border-border bg-card object-cover"
+        />
+        <ProfileShareActions
+          handle={p.user.handle}
+          index={card.index}
+          isPublic={isPublic}
+          downloadUrl={cardUrl}
+        />
+      </section>
 
       {/* Every number here is reproducible from the JSON at the link below:
           per-tool score, whether it qualified, the stack-depth sum, the

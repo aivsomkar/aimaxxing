@@ -19,6 +19,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ handle: st
     avatarUrl: p.user.avatarUrl,
     costUsd: p.costUsd,
     anyUnverified: p.anyUnverified,
+    anyVerified: p.anyVerified,
     tools: p.tools,
     models: p.models,
     tokenTotals: p.tokenTotals,

@@ -1,21 +1,25 @@
 import * as React from 'react'
 import { ImageResponse } from 'next/og'
-import { notFound } from 'next/navigation'
 import { ProfileCardImage } from '@/components/ProfileCardImage'
 import { getPublicProfile } from '@/lib/queries'
 import { buildShareCardData, decodeShareHandle } from '@/lib/share-card'
 
-export const alt = 'AI Maxxing developer profile card'
-export const size = { width: 1200, height: 630 }
-export const contentType = 'image/png'
 export const dynamic = 'force-dynamic'
 
-export default async function OpenGraphImage({ params }: { params: Promise<{ handle: string }> }) {
+export async function GET(_: Request, { params }: { params: Promise<{ handle: string }> }) {
   const handle = decodeShareHandle((await params).handle)
   const profile = await getPublicProfile(handle)
-  if (!profile) notFound()
+  if (!profile) return Response.json({ error: 'not found' }, { status: 404 })
+  const safeHandle = profile.user.handle.replace(/[^a-z0-9_-]/g, '')
   return new ImageResponse(
     <ProfileCardImage data={buildShareCardData(profile)} />,
-    size,
+    {
+      width: 1200,
+      height: 630,
+      headers: {
+        'Content-Disposition': `attachment; filename="aimaxxing-${safeHandle}.png"`,
+        'Cache-Control': 'public, max-age=300, stale-while-revalidate=3600',
+      },
+    },
   )
 }
