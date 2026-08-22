@@ -58,7 +58,7 @@ packages/reporter/
   tests/*.test.ts
 ```
 
-The package supports maintained Node.js LTS releases 20 and newer. It emits an executable ESM CLI and contains no Next.js or database dependency.
+The package supports Node.js 22 and newer. It emits an executable ESM CLI and contains no Next.js or third-party database dependency. OpenCode SQLite access uses the built-in `node:sqlite` module.
 
 ## 4. Commands
 
@@ -159,13 +159,15 @@ Rows are merged by `(tool, model, day)`. Numeric totals use safe integers and re
 
 ### 5.3 OpenCode
 
-- Detects supported OpenCode data roots on macOS, Linux, and Windows.
-- Uses a versioned reader for the installed storage format rather than assuming JSONL.
-- Reads only session identity, timestamp, model, token counters, and recorded cost fields.
-- Returns a named `unsupported_format` warning when OpenCode is installed but its storage version is unknown.
+- Default source on macOS and Linux: `~/.local/share/opencode/opencode.db`; Windows resolves the equivalent OpenCode data root before appending `opencode.db`.
+- Opens SQLite read-only through Node 22 `node:sqlite`.
+- Checks `PRAGMA table_info(session)` for the exact supported columns: `id`, `model`, `cost`, `tokens_input`, `tokens_output`, `tokens_reasoning`, `tokens_cache_read`, `tokens_cache_write`, and `time_created`.
+- Selects only those columns from `session`; it never selects `directory`, `path`, `title`, metadata, messages, parts, or content tables.
+- Parses `model` only for provider and model identifiers, maps token columns directly, uses recorded `cost`, and counts each session row once.
+- Returns a named `unsupported_format` warning when the database exists but the required column contract is incomplete.
 - Absence of OpenCode is reported as `not_found` and does not block other adapters.
 
-OpenCode was configured but had no local data store on the audited machine. Fixture coverage therefore supplies the supported storage cases before the adapter is considered complete.
+OpenCode was configured but had no local data store on the audited machine. Fixture coverage therefore creates a temporary SQLite database with the exact supported `session` columns before the adapter is considered complete.
 
 ## 6. Sessions, Days, and Cost
 
@@ -193,6 +195,15 @@ reporters
 
 reporter_submissions
   id, reporter_id, payload_hash, pricing_version, received_at
+
+reporter_action_requests
+  id, reporter_id, request_id, action, received_at
+  unique(reporter_id, request_id)
+
+reporter_tool_days
+  id, reporter_id, user_id, tool, model, day, sessions,
+  tokens_in, tokens_out, cache_read, cache_write, cost_usd, created_at
+  unique(reporter_id, tool, model, day)
 ```
 
 Raw device codes and private keys are never stored by the server. Link sessions expire after ten minutes and can be consumed only once.
@@ -200,11 +211,13 @@ Raw device codes and private keys are never stored by the server. Link sessions 
 ### Endpoints and page
 
 - `POST /api/v1/reporters/link/start`: accepts public key and a non-sensitive machine label, then returns the raw device code once, user code, verification URL, interval, and expiry.
-- `POST /api/v1/reporters/link/status`: accepts the raw device code and returns pending, approved, expired, or denied.
+- `POST /api/v1/reporters/link/status`: accepts the raw device code and returns pending, approved with reporter ID and account handle, expired, or denied.
 - `/link`: requires GitHub sign-in, displays the code and public-key fingerprint, and asks the user to approve or deny the machine.
-- `POST /api/v1/reporters/[id]/revoke`: authenticated owner action used by settings and `unlink`.
+- `POST /api/v1/reporters/[id]/revoke`: accepts either an authenticated owner session or a signed self-revocation from that active reporter. The signed body contains `reporterId`, `action: 'revoke'`, `issuedAt`, `requestId`, `deleteData`, and `signature`.
 
 Polling is rate-limited and uses the server-provided interval. Expired, consumed, or denied codes cannot be revived.
+
+Signed self-revocation uses the same canonicalization, five-minute clock-skew limit, and active-key verification rules as report submission. The server records `(reporter_id, request_id)` before revocation in the same transaction so action replays are rejected. An authenticated owner may revoke an already inactive reporter or separately delete its rows.
 
 ## 8. Signed Report Protocol
 
@@ -228,14 +241,14 @@ The CLI canonicalizes the unsigned payload with stable key order and signs its U
 3. rejects an existing submission ID;
 4. validates the report schema and sanity caps;
 5. verifies the Ed25519 signature before opening a transaction;
-6. upserts reporter-owned `tool_days` rows and records the submission atomically;
+6. upserts reporter-owned `reporter_tool_days` rows and records the submission atomically;
 7. updates `last_seen_at` only after commit.
 
 The response never echoes raw database or signature errors.
 
 ## 9. Reporter Ownership and Idempotency
 
-`tool_days` gains nullable `reporter_id`. Verified rows require an active reporter and non-null reporter ID. Manual rows require null reporter ID and remain unverified.
+Existing `tool_days` remains the manual-report table and retains its current account/tool/model/day uniqueness. Verified rows live in `reporter_tool_days`, where reporter ownership is required and uniqueness is `(reporter_id, tool, model, day)`.
 
 Each reporter submission is a complete snapshot for that reporter. Inside one transaction the server upserts rows present in the snapshot and deletes that reporter’s older rows absent from the new snapshot. Rows from another reporter on the same account are not touched. Public queries continue aggregating by account, tool, model, and day.
 
