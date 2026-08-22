@@ -32,11 +32,13 @@ export function PortfolioManager({
   importSession,
   actions,
   message,
+  vercelConfigured = true,
 }: {
   projects: ManagedProject[]
   importSession: ImportSession | null
   actions?: ManagerActions
   message?: string | null
+  vercelConfigured?: boolean
 }) {
   return (
     <div className="space-y-10">
@@ -58,12 +60,18 @@ export function PortfolioManager({
               Import from GitHub
             </button>
           </form>
-          <a
-            href="/api/integrations/vercel/start"
-            className="border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:border-primary hover:text-primary"
-          >
-            Connect Vercel
-          </a>
+          {vercelConfigured ? (
+            <a
+              href="/api/integrations/vercel/start"
+              className="border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:border-primary hover:text-primary"
+            >
+              Connect Vercel
+            </a>
+          ) : (
+            <span className="cursor-not-allowed border border-border px-4 py-2.5 text-sm text-muted-foreground" title="The Vercel integration has not been configured by the site owner">
+              Connect Vercel · unavailable
+            </span>
+          )}
         </div>
       </section>
 

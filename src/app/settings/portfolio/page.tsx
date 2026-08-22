@@ -59,6 +59,11 @@ export default async function PortfolioSettings({
           projects={projects}
           importSession={importSession}
           message={query.error ?? query.notice ?? null}
+          vercelConfigured={Boolean(
+            process.env.VERCEL_INTEGRATION_ID
+            && process.env.VERCEL_INTEGRATION_CLIENT_SECRET
+            && process.env.VERCEL_INTEGRATION_SLUG
+          )}
           actions={{
             addManual,
             editProject,

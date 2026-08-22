@@ -6,7 +6,9 @@ import * as schema from '../src/db/schema'
 import {
   addManualProject,
   createImportSession,
+  completeImportSession,
   getImportSession,
+  getImportSessionByStateHash,
   listPortfolioProjects,
   publishSelectedCandidates,
   removePortfolioProject,
@@ -139,5 +141,32 @@ describe('portfolio import sessions', () => {
     expect(await getImportSession(db, owner.id, session.id, now)).toBeNull()
     await expect(publishSelectedCandidates(db, owner.id, session.id, ['one'], now))
       .rejects.toThrow('portfolio import session not found')
+  })
+
+  it('finds a Vercel session by owner and state hash, then clears state on completion', async () => {
+    const owner = await makeUser()
+    const other = await makeUser()
+    const now = new Date('2026-08-22T12:00:00Z')
+    const session = await createImportSession(db, owner.id, 'vercel', [], {
+      now,
+      stateHash: 'state-hash',
+    })
+
+    expect(await getImportSessionByStateHash(db, other.id, 'vercel', 'state-hash', now))
+      .toBeNull()
+    expect(await getImportSessionByStateHash(db, owner.id, 'vercel', 'state-hash', now))
+      .toMatchObject({ id: session.id })
+
+    const [completed] = await completeImportSession(db, owner.id, session.id, [{
+      ...candidate('vercel-one', 'https://vercel-one.example.com'),
+      source: 'vercel',
+    }])
+    expect(completed).toMatchObject({ source: 'vercel', externalId: 'vercel-one' })
+    expect(await getImportSessionByStateHash(db, owner.id, 'vercel', 'state-hash', now))
+      .toBeNull()
+    expect(await getImportSession(db, owner.id, session.id, now)).toMatchObject({
+      stateHash: null,
+      candidates: [expect.objectContaining({ externalId: 'vercel-one' })],
+    })
   })
 })

@@ -147,6 +147,40 @@ export async function getImportSession(
   return session ?? null
 }
 
+export async function getImportSessionByStateHash(
+  database: Database,
+  userId: number,
+  source: 'github' | 'vercel',
+  stateHash: string,
+  now = new Date(),
+) {
+  const [session] = await database.select().from(portfolioImportSessions)
+    .where(and(
+      eq(portfolioImportSessions.userId, userId),
+      eq(portfolioImportSessions.source, source),
+      eq(portfolioImportSessions.stateHash, stateHash),
+      gt(portfolioImportSessions.expiresAt, now),
+    ))
+  return session ?? null
+}
+
+export async function completeImportSession(
+  database: Database,
+  userId: number,
+  sessionId: string,
+  candidates: PortfolioCandidate[],
+) {
+  const [updated] = await database.update(portfolioImportSessions)
+    .set({ candidates, stateHash: null })
+    .where(and(
+      eq(portfolioImportSessions.id, sessionId),
+      eq(portfolioImportSessions.userId, userId),
+    ))
+    .returning({ id: portfolioImportSessions.id })
+  if (!updated) throw new Error('portfolio import session not found')
+  return candidates
+}
+
 async function upsertCandidate(tx: any, userId: number, candidate: PortfolioCandidate) {
   const [byLiveUrl] = await tx.select().from(portfolioProjects).where(and(
     eq(portfolioProjects.userId, userId),
