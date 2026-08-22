@@ -1,6 +1,13 @@
+import { redirect } from 'next/navigation'
+import { auth } from '@/auth'
 import { submitManualReport } from './actions'
 
-export default function Report() {
+export default async function Report() {
+  // No middleware.ts guards this route; anonymous visitors would otherwise hit
+  // submitManualReport's 'unauthenticated' throw and see a raw Next.js error page.
+  const session = await auth()
+  if (!(session?.user as any)?.handle) redirect('/api/auth/signin')
+
   return (
     <main className="mx-auto max-w-xl p-8 space-y-4">
       <h1 className="text-2xl font-bold">Add usage manually</h1>

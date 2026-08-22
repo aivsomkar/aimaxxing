@@ -1,6 +1,13 @@
+import { redirect } from 'next/navigation'
+import { auth } from '@/auth'
 import { setPublicOptIn, deleteAllData } from './actions'
 
-export default function Settings() {
+export default async function Settings() {
+  // No middleware.ts guards this route; anonymous visitors would otherwise hit
+  // setPublicOptIn/deleteAllData's 'unauthenticated' throw and see a raw error page.
+  const session = await auth()
+  if (!(session?.user as any)?.handle) redirect('/api/auth/signin')
+
   return (
     <main className="mx-auto max-w-2xl p-8 space-y-8">
       <h1 className="text-2xl font-bold">Settings</h1>

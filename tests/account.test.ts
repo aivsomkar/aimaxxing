@@ -81,6 +81,21 @@ describe('deleteAllDataForUser', () => {
     expect(row.publicOptIn).toBe(false)
   })
 
+  // The finding this guards against: xHandle/instagramHandle/tagOptIn are
+  // PII (Task 13 tags everyone with tagOptIn: true in a public weekly post),
+  // so "delete all my data" must erase them too, not just the usage rows.
+  it('clears xHandle, instagramHandle, and tagOptIn so a deleted user cannot still be tagged', async () => {
+    const user = await makeUser()
+    await db.update(schema.users)
+      .set({ xHandle: '@omkar', instagramHandle: 'omkar.codes', tagOptIn: true })
+      .where(eq(schema.users.id, user.id))
+    await deleteAllDataForUser(db, user.id)
+    const [row] = await db.select().from(schema.users).where(eq(schema.users.id, user.id))
+    expect(row.xHandle).toBeNull()
+    expect(row.instagramHandle).toBeNull()
+    expect(row.tagOptIn).toBe(false)
+  })
+
   it('does not touch another user\'s rows', async () => {
     const target = await makeUser()
     const other = await makeUser()
