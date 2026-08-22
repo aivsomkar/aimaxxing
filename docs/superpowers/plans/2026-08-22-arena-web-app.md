@@ -412,7 +412,7 @@ export function computeIndex(tools: ToolDepth[], output: Output): IndexBreakdown
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `pnpm vitest run tests/index-math.test.ts`
-Expected: PASS (15 tests)
+Expected: PASS (16 tests)
 
 - [ ] **Step 5: Commit**
 
