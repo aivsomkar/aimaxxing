@@ -29,7 +29,7 @@ export default async function Settings() {
         <h2 className="font-semibold">Delete everything</h2>
         <p className="text-sm opacity-70">Removes all reported usage and unlists you. Irreversible.</p>
         <form action={async () => { 'use server'; await deleteAllData() }}>
-          <button className="rounded border border-red-600 px-4 py-2 text-red-600">Delete my data</button>
+          <button className="rounded border border-destructive px-4 py-2 text-destructive">Delete my data</button>
         </form>
       </section>
     </main>
