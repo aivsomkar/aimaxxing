@@ -129,9 +129,59 @@ money in the metric, an unfalsifiable ranking loses credibility fast.
 
 ---
 
-## 4. Boards
+## 4. Homepage and boards
 
-Four boards, one profile. The loud board recruits; the profile retains.
+### 4.1 The Collective Burn — the hero
+
+The homepage leads with a single shared number: **everything every developer on the arena has ever
+spent, and every token they have ever burned, added together.**
+
+```
+        1,412,880,043 TOKENS BURNED
+              $ 4 8 , 2 0 1 . 7 7
+        by 812 developers · $1,204 in the last 24h
+```
+
+This is the US Debt Clock pattern, and it earns the hero slot for reasons the individual boards
+cannot match:
+
+- **It is collective, not competitive.** Every participant adds to one number, so joining feels
+  like contributing rather than only exposing yourself. That materially softens the confession
+  problem identified in §13.
+- **It only goes up.** An all-time total that visibly ticks is hypnotic and screenshot-able in a
+  way a ranked table is not.
+- **It generates milestones for free.** First $10k, $100k, $1M — each crossing is a post, and the
+  $1M crossing is a press moment.
+
+**Launch tactic — lead with tokens.** With 20 developers on day one the dollar figure is around
+$4,000, which reads as small. The same usage is well over a billion tokens, which reads as
+enormous. Both counters are shown; the token counter is sized larger until the dollar figure can
+carry the headline on its own.
+
+**Motion requirement.** The counter animates continuously between polls rather than stepping on
+ingest. A frozen clock reads as a dead product — worse than no clock at all. "In the last 24h" sits
+beneath the all-time figure so there is always visible movement even when growth is slow.
+
+**Sponsored credits are excluded from the collective total** (or shown as a separate tagged line),
+per the §9 rule. A credit prize must not inflate the headline number.
+
+### 4.2 Where the money goes — the data asset
+
+Directly beneath the counter, the collective total breaks down live:
+
+- **By model** — Opus vs Sonnet vs GPT vs Gemini, as a share of real dollars
+- **By tool** — Claude Code vs OpenCode vs Codex CLI vs Cursor
+- **By token type** — input / output / cache read / cache write
+
+The by-model split is the most commercially valuable artifact Stack Arena produces. **Live market
+share of AI coding spend, measured in actual dollars, does not exist anywhere else** — not from the
+labs, not from the gateways, not from analysts. It is the number journalists cite, and it is the
+basis of the monthly report described in §9.
+
+### 4.3 Boards
+
+Rankings sit below the dashboard. Four boards, one profile. The loud board recruits; the profile
+retains.
 
 | Board | Metric | Role |
 | --- | --- | --- |
@@ -201,6 +251,8 @@ tool_days        user_id, tool, model, day, sessions,
                  cost_usd, source (reporter|manual), verified
 github_stats     user_id, merged_prs, active_repos, contributions, synced_at
 index_snapshots  user_id, period, stack_depth, output_term, index, computed_at
+collective       day, tokens_in, tokens_out, cache_read, cache_write, cost_usd
+                 (rolled up nightly; the live counter reads this plus today's deltas)
 sponsors         slot, name, url, blurb, starts_on, ends_on   (JSON-backed in v1)
 ```
 
@@ -291,6 +343,7 @@ Radical transparency and the product-as-marketing in a single artifact.
 | Risk | Severity | Mitigation |
 | --- | --- | --- |
 | Novelty decay — spikes and dies | High | The Index and profiles provide durability the Burn board alone cannot |
+| Collective counter stalls and reads dead | Medium | Always pair all-time with a 24h figure; animate between polls (§4.1) |
 | Cold start — an empty arena is fatal | High | Seed with founders; ship only when the board looks alive |
 | Badge farming via shallow installs | Medium | Qualifying floor, published and enforced |
 | Fabricated entries | Medium | Verified badge from day one, not as a follow-up |
@@ -302,8 +355,8 @@ Radical transparency and the product-as-marketing in a single artifact.
 
 ## 14. Open questions
 
-1. Is the Index the homepage default, or is The Burn the default with the Index one click away?
-   *Recommendation: Burn on the homepage for launch week, then switch the default to Index.*
+1. ~~Homepage default~~ — **resolved: The Burn is the homepage default**, led by the
+   Collective Burn counter (§4.1), with rankings below and the Index one click away.
 2. Does manual self-reported entry exist at launch at all, or only after the reporter proves out?
    *Recommendation: include it — it lets Cursor users participate, and the badge keeps it honest.*
 3. Public leaderboard opt-in or opt-out at link time?
