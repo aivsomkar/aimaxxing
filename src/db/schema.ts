@@ -8,6 +8,7 @@ import {
   date,
   numeric,
   uniqueIndex,
+  index,
   serial,
   jsonb,
   uuid,
@@ -105,3 +106,81 @@ export const portfolioImportSessions = pgTable('portfolio_import_sessions', {
   expiresAt: timestamp('expires_at').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
+
+export const reporters = pgTable('reporters', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  machineIdHash: text('machine_id_hash').notNull(),
+  machineLabel: text('machine_label').notNull(),
+  publicKey: text('public_key').notNull(),
+  publicKeyFingerprint: text('public_key_fingerprint').notNull(),
+  linkedAt: timestamp('linked_at').notNull().defaultNow(),
+  lastSeenAt: timestamp('last_seen_at'),
+  revokedAt: timestamp('revoked_at'),
+}, (table) => ({
+  userMachine: uniqueIndex('reporters_user_machine_uniq').on(table.userId, table.machineIdHash),
+  fingerprint: uniqueIndex('reporters_fingerprint_uniq').on(table.publicKeyFingerprint),
+  user: index('reporters_user_idx').on(table.userId),
+}))
+
+export const reporterLinkSessions = pgTable('reporter_link_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  deviceCodeHash: text('device_code_hash').notNull(),
+  userCodeHash: text('user_code_hash').notNull(),
+  publicKey: text('public_key').notNull(),
+  publicKeyFingerprint: text('public_key_fingerprint').notNull(),
+  machineIdHash: text('machine_id_hash').notNull(),
+  machineLabel: text('machine_label').notNull(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  reporterId: uuid('reporter_id').references(() => reporters.id, { onDelete: 'set null' }),
+  expiresAt: timestamp('expires_at').notNull(),
+  approvedAt: timestamp('approved_at'),
+  deniedAt: timestamp('denied_at'),
+  consumedAt: timestamp('consumed_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  deviceCode: uniqueIndex('reporter_link_sessions_device_code_uniq').on(table.deviceCodeHash),
+  userCode: uniqueIndex('reporter_link_sessions_user_code_uniq').on(table.userCodeHash),
+  expiry: index('reporter_link_sessions_expiry_idx').on(table.expiresAt),
+}))
+
+export const reporterSubmissions = pgTable('reporter_submissions', {
+  id: text('id').primaryKey(),
+  reporterId: uuid('reporter_id').notNull().references(() => reporters.id, { onDelete: 'cascade' }),
+  payloadHash: text('payload_hash').notNull(),
+  pricingVersion: text('pricing_version').notNull(),
+  receivedAt: timestamp('received_at').notNull().defaultNow(),
+}, (table) => ({
+  reporter: index('reporter_submissions_reporter_idx').on(table.reporterId),
+}))
+
+export const reporterActionRequests = pgTable('reporter_action_requests', {
+  id: serial('id').primaryKey(),
+  reporterId: uuid('reporter_id').notNull().references(() => reporters.id, { onDelete: 'cascade' }),
+  requestId: text('request_id').notNull(),
+  action: text('action').notNull(),
+  receivedAt: timestamp('received_at').notNull().defaultNow(),
+}, (table) => ({
+  request: uniqueIndex('reporter_action_requests_reporter_request_uniq')
+    .on(table.reporterId, table.requestId),
+}))
+
+export const reporterToolDays = pgTable('reporter_tool_days', {
+  id: serial('id').primaryKey(),
+  reporterId: uuid('reporter_id').notNull().references(() => reporters.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  tool: text('tool').notNull(),
+  model: text('model').notNull(),
+  day: date('day').notNull(),
+  sessions: integer('sessions').notNull().default(0),
+  tokensIn: bigint('tokens_in', { mode: 'number' }).notNull().default(0),
+  tokensOut: bigint('tokens_out', { mode: 'number' }).notNull().default(0),
+  cacheRead: bigint('cache_read', { mode: 'number' }).notNull().default(0),
+  cacheWrite: bigint('cache_write', { mode: 'number' }).notNull().default(0),
+  costUsd: numeric('cost_usd', { precision: 12, scale: 4 }).notNull().default('0'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  reporterDay: uniqueIndex('reporter_tool_days_reporter_tool_model_day_uniq')
+    .on(table.reporterId, table.tool, table.model, table.day),
+  user: index('reporter_tool_days_user_idx').on(table.userId),
+}))

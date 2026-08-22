@@ -7,6 +7,11 @@ import {
   collectiveDays,
   portfolioProjects,
   portfolioImportSessions,
+  reporters,
+  reporterLinkSessions,
+  reporterSubmissions,
+  reporterActionRequests,
+  reporterToolDays,
 } from '../src/db/schema'
 
 describe('schema', () => {
@@ -59,5 +64,37 @@ describe('schema', () => {
   it('stores private import candidates with an expiry', () => {
     expect(portfolioImportSessions.candidates.dataType).toBe('json')
     expect(portfolioImportSessions.expiresAt.notNull).toBe(true)
+  })
+
+  it('stores reporter links, devices, submissions, actions, and verified daily rows', () => {
+    expect(reporters.publicKey.notNull).toBe(true)
+    expect(reporters.machineLabel.notNull).toBe(true)
+    expect(reporterLinkSessions.deviceCodeHash.notNull).toBe(true)
+    expect(reporterLinkSessions.expiresAt.notNull).toBe(true)
+    expect(reporterSubmissions.payloadHash.notNull).toBe(true)
+    expect(reporterActionRequests.requestId.notNull).toBe(true)
+    expect(reporterToolDays.reporterId.notNull).toBe(true)
+    expect(reporterToolDays.userId.notNull).toBe(true)
+  })
+
+  it('keeps reporter daily rows distinct per machine without changing manual uniqueness', () => {
+    const reporterUniques = getTableConfig(reporterToolDays).indexes.filter((index) => index.config.unique)
+    expect(reporterUniques.map((index) => index.config.columns.map((column: any) => column.name)))
+      .toContainEqual(['reporter_id', 'tool', 'model', 'day'])
+
+    const manualUniques = getTableConfig(toolDays).indexes.filter((index) => index.config.unique)
+    expect(manualUniques[0].config.columns.map((column: any) => column.name))
+      .toEqual(['user_id', 'tool', 'model', 'day'])
+  })
+
+  it('replay-protects reporter actions per reporter and cascades reporter-owned rows', () => {
+    const actionUniques = getTableConfig(reporterActionRequests).indexes
+      .filter((index) => index.config.unique)
+    expect(actionUniques.map((index) => index.config.columns.map((column: any) => column.name)))
+      .toContainEqual(['reporter_id', 'request_id'])
+
+    const reporterForeignKey = getTableConfig(reporterToolDays).foreignKeys
+      .find((foreignKey) => foreignKey.reference().columns[0].name === 'reporter_id')
+    expect(reporterForeignKey?.onDelete).toBe('cascade')
   })
 })
