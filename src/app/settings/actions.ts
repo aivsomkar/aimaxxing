@@ -6,6 +6,7 @@ import { auth } from '@/auth'
 import { db } from '@/db/client'
 import { users } from '@/db/schema'
 import { setPublicOptInForUser, deleteAllDataForUser, setXHandleForUser } from '@/lib/account'
+import { getAccountStatus } from '@/lib/account-status'
 import { validateXHandle } from '@/lib/social'
 
 // Not unit-tested directly: it calls next-auth's auth(), which needs the
@@ -23,15 +24,30 @@ async function currentUser() {
 
 export async function setPublicOptIn(value: boolean) {
   const u = await currentUser()
+  if (value) {
+    const status = await getAccountStatus(db, u.id)
+    if (!status?.canPublish) {
+      redirect('/settings?error=Add%20a%20live%20website%2C%20AI%20usage%2C%20or%20GitHub%20output%20before%20publishing')
+    }
+  }
   await setPublicOptInForUser(db, u.id, value)
   revalidatePath('/')
   revalidatePath(`/@${u.handle}`)
+  revalidatePath(`/${u.handle}`)
+  redirect(`/settings?notice=${value ? 'Profile%20published' : 'Profile%20unpublished'}`)
 }
 
-export async function deleteAllData() {
+export async function deleteAllData(formData: FormData) {
   const u = await currentUser()
+  const confirmation = String(formData.get('confirmation') ?? '').trim()
+  if (confirmation !== u.handle) {
+    redirect(`/settings?error=${encodeURIComponent(`Type ${u.handle} exactly to delete your data`)}`)
+  }
   await deleteAllDataForUser(db, u.id)
   revalidatePath('/')
+  revalidatePath(`/@${u.handle}`)
+  revalidatePath(`/${u.handle}`)
+  redirect('/settings?notice=Account%20data%20deleted')
 }
 
 export async function saveXHandle(formData: FormData) {

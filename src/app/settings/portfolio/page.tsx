@@ -25,10 +25,10 @@ export default async function PortfolioSettings({
 }) {
   const session = await auth()
   const handle = (session?.user as { handle?: string } | undefined)?.handle
-  if (!handle) redirect('/api/auth/signin')
+  if (!handle) redirect('/signin?callbackUrl=/settings/portfolio')
 
   const [user] = await db.select().from(users).where(eq(users.handle, handle))
-  if (!user) redirect('/api/auth/signin')
+  if (!user) redirect('/signin?callbackUrl=/settings/portfolio')
 
   const query = await searchParams
   const projects = await listPortfolioProjects(db, user.id)

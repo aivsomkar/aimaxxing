@@ -1,11 +1,12 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { setPublicOptIn, deleteAllData, saveXHandle } from './actions'
-import Link from 'next/link'
 import { eq } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { users } from '@/db/schema'
 import { SocialSettings } from '@/components/SocialSettings'
+import { AccountDashboard } from '@/components/AccountDashboard'
+import { getAccountStatus } from '@/lib/account-status'
 
 export default async function Settings({
   searchParams,
@@ -16,10 +17,22 @@ export default async function Settings({
   // setPublicOptIn/deleteAllData's 'unauthenticated' throw and see a raw error page.
   const session = await auth()
   const handle = (session?.user as { handle?: string } | undefined)?.handle
-  if (!handle) redirect('/api/auth/signin')
+  if (!handle) redirect('/signin?callbackUrl=/settings')
   const [user] = await db.select().from(users).where(eq(users.handle, handle))
-  if (!user) redirect('/api/auth/signin')
+  if (!user) redirect('/signin?callbackUrl=/settings')
+  const status = await getAccountStatus(db, user.id)
+  if (!status) redirect('/signin?callbackUrl=/settings')
   const query = await searchParams
+
+  async function publish() {
+    'use server'
+    await setPublicOptIn(true)
+  }
+
+  async function unpublish() {
+    'use server'
+    await setPublicOptIn(false)
+  }
 
   return (
     <main className="mx-auto max-w-2xl p-8 space-y-8">
@@ -31,36 +44,27 @@ export default async function Settings({
         </p>
       )}
 
-      <section className="space-y-2">
-        <h2 className="font-semibold">Public board</h2>
-        <p className="text-sm opacity-70">
-          Your data is private until you turn this on. Signing in does not list you.
-        </p>
-        <form action={async () => { 'use server'; await setPublicOptIn(true) }}>
-          <button className="rounded-[--radius] bg-primary px-4 py-2 text-primary-foreground">List me publicly</button>
-        </form>
-        <form action={async () => { 'use server'; await setPublicOptIn(false) }}>
-          <button className="rounded border px-4 py-2">Remove me from public boards</button>
-        </form>
-      </section>
+      <AccountDashboard status={status} onPublish={publish} onUnpublish={unpublish} />
 
       <SocialSettings xHandle={user.xHandle} onSave={saveXHandle} />
 
       <section className="space-y-2">
-        <h2 className="font-semibold">Portfolio</h2>
-        <p className="text-sm opacity-70">
-          Select the live websites you want to showcase beside your AI usage.
-        </p>
-        <Link className="inline-block rounded-[--radius] bg-primary px-4 py-2 text-primary-foreground" href="/settings/portfolio">
-          Manage live projects
-        </Link>
-      </section>
-
-      <section className="space-y-2">
         <h2 className="font-semibold">Delete everything</h2>
-        <p className="text-sm opacity-70">Removes all reported usage and unlists you. Irreversible.</p>
-        <form action={async () => { 'use server'; await deleteAllData() }}>
-          <button className="rounded border border-destructive px-4 py-2 text-destructive">Delete my data</button>
+        <p className="text-sm opacity-70">
+          Removes reported usage, selected websites, social handles, private imports, and GitHub output.
+          Type <strong>{user.handle}</strong> to confirm. This cannot be undone.
+        </p>
+        <form action={deleteAllData} className="flex max-w-lg flex-col gap-3 sm:flex-row">
+          <label className="sr-only" htmlFor="delete-confirmation">Type your handle to confirm deletion</label>
+          <input
+            id="delete-confirmation"
+            name="confirmation"
+            required
+            autoComplete="off"
+            className="min-h-11 min-w-0 flex-1 border border-input bg-background px-3 font-mono text-sm"
+            placeholder={user.handle}
+          />
+          <button className="min-h-11 border border-destructive px-4 text-destructive">Delete my data</button>
         </form>
       </section>
     </main>
