@@ -32,6 +32,12 @@
 
 **Files:**
 - Create: `package.json`, `tsconfig.json`, `next.config.ts`, `postcss.config.mjs`, `drizzle.config.ts`, `vitest.config.ts`, `.env.example`, `.gitignore`
+
+**`next.config.ts` must set `serverExternalPackages: ['@electric-sql/pglite']`.** PGlite is a WASM
+package; without this, Next's dev-server RSC bundling throws
+`TypeError: The "path" argument must be of type string ... Received an instance of URL` on any route
+that imports the db client. `@electric-sql/pglite` belongs in `dependencies`, not `devDependencies`,
+because `src/db/client.ts` imports it at top level and production code imports that module.
 - Create: `src/db/schema.ts`, `src/db/client.ts`, `src/db/migrate.ts`
 - Create: `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/globals.css`
 - Test: `tests/schema.test.ts`
@@ -58,6 +64,7 @@
     "db:migrate": "tsx src/db/migrate.ts"
   },
   "dependencies": {
+    "@electric-sql/pglite": "^0.3.0",
     "drizzle-orm": "^0.44.0",
     "next": "^15.3.0",
     "next-auth": "5.0.0-beta.32",
@@ -67,7 +74,6 @@
     "zod": "^3.25.0"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.3.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.23.1",
