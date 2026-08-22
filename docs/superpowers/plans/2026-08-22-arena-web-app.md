@@ -90,6 +90,11 @@ export const users = pgTable('users', {
   handle: text('handle').notNull().unique(),
   avatarUrl: text('avatar_url'),
   publicOptIn: boolean('public_opt_in').notNull().default(false),
+  // Optional, for tagging people when the weekly board is posted. Never shown
+  // publicly unless the user opts in; see Task 13.
+  xHandle: text('x_handle'),
+  instagramHandle: text('instagram_handle'),
+  tagOptIn: boolean('tag_opt_in').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
@@ -188,6 +193,10 @@ describe('schema', () => {
     expect(collectiveDays.cacheRead).toBeDefined()
     expect(collectiveDays.cacheWrite).toBeDefined()
   })
+
+  it('defaults tag_opt_in to false so nobody is tagged without asking', () => {
+    expect(users.tagOptIn.default).toBe(false)
+  })
 })
 ```
 
@@ -202,7 +211,7 @@ Expected: FAIL — module `../src/db/schema` not found, or dependencies not inst
 pnpm install
 pnpm vitest run tests/schema.test.ts
 ```
-Expected: PASS (3 tests)
+Expected: PASS (4 tests)
 
 - [ ] **Step 7: Generate the initial migration**
 
@@ -1843,6 +1852,231 @@ Expected: all tests pass, no type errors, production build succeeds.
 ```bash
 git add -A
 git commit -m "feat: methodology, sponsor page, and non-placement sponsor slot"
+```
+
+---
+
+### Task 13: Social handles and the tag export
+
+The weekly leaderboard post is the product's only distribution. Tagging everyone on the board makes
+each post reach their followers too, so collecting handles is a growth mechanism rather than an
+admin convenience. It is framed to the user as what it is: free exposure in exchange for a handle.
+
+**Files:**
+- Create: `src/lib/tags.ts`, `src/app/admin/page.tsx`
+- Modify: `src/app/settings/page.tsx`, `src/app/settings/actions.ts`
+- Test: `tests/tags.test.ts`
+- Modify: `.env.example`
+
+**Interfaces:**
+- Consumes: `users` (Task 1), `rankBoard` + `Entrant` (Task 4), `getEntrants` (Task 8)
+- Produces:
+  - `normalizeSocial(input: string): string | null`
+  - `buildTagLine(entries: { handle: string; xHandle: string | null; tagOptIn: boolean }[], limit: number): string`
+  - server action `setSocials(formData: FormData)`
+
+- [ ] **Step 1: Write the failing test**
+
+```ts
+// tests/tags.test.ts
+import { describe, it, expect } from 'vitest'
+import { normalizeSocial, buildTagLine } from '../src/lib/tags'
+
+describe('normalizeSocial', () => {
+  it('strips a leading at sign', () => {
+    expect(normalizeSocial('@omkar')).toBe('omkar')
+  })
+  it('accepts a full profile url', () => {
+    expect(normalizeSocial('https://x.com/omkar')).toBe('omkar')
+    expect(normalizeSocial('https://twitter.com/omkar/')).toBe('omkar')
+  })
+  it('rejects a handle with illegal characters', () => {
+    expect(normalizeSocial('om kar!')).toBe(null)
+  })
+  it('returns null for empty input rather than an empty string', () => {
+    expect(normalizeSocial('   ')).toBe(null)
+  })
+})
+
+describe('buildTagLine', () => {
+  const e = (handle: string, xHandle: string | null, tagOptIn = true) => ({ handle, xHandle, tagOptIn })
+
+  it('produces a paste-ready line of x handles in board order', () => {
+    expect(buildTagLine([e('a','ax'), e('b','bx')], 10)).toBe('@ax @bx')
+  })
+  it('skips anyone who did not opt in to tagging', () => {
+    expect(buildTagLine([e('a','ax'), e('b','bx', false)], 10)).toBe('@ax')
+  })
+  it('skips anyone with no handle on file', () => {
+    expect(buildTagLine([e('a','ax'), e('b', null)], 10)).toBe('@ax')
+  })
+  it('respects the limit', () => {
+    expect(buildTagLine([e('a','ax'), e('b','bx'), e('c','cx')], 2)).toBe('@ax @bx')
+  })
+})
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `pnpm vitest run tests/tags.test.ts`
+Expected: FAIL — cannot find module `../src/lib/tags`.
+
+- [ ] **Step 3: Write `src/lib/tags.ts`**
+
+```ts
+const HANDLE = /^[A-Za-z0-9_.]{1,30}$/
+
+export function normalizeSocial(input: string): string | null {
+  let v = (input ?? '').trim()
+  if (v === '') return null
+  v = v.replace(/^https?:\/\/(www\.)?(x|twitter|instagram)\.com\//i, '')
+  v = v.replace(/\/+$/, '')
+  v = v.replace(/^@/, '')
+  return HANDLE.test(v) ? v : null
+}
+
+export function buildTagLine(
+  entries: { handle: string; xHandle: string | null; tagOptIn: boolean }[],
+  limit: number,
+): string {
+  return entries
+    .filter((e) => e.tagOptIn && e.xHandle)
+    .slice(0, limit)
+    .map((e) => `@${e.xHandle}`)
+    .join(' ')
+}
+```
+
+- [ ] **Step 4: Run the test to verify it passes**
+
+Run: `pnpm vitest run tests/tags.test.ts`
+Expected: PASS (8 tests)
+
+- [ ] **Step 5: Add `setSocials` to `src/app/settings/actions.ts`**
+
+```ts
+export async function setSocials(formData: FormData) {
+  const u = await currentUser()
+  const x = normalizeSocial(String(formData.get('xHandle') ?? ''))
+  const ig = normalizeSocial(String(formData.get('instagramHandle') ?? ''))
+  const tagOptIn = formData.get('tagOptIn') === 'on'
+  await db.update(users)
+    .set({ xHandle: x, instagramHandle: ig, tagOptIn })
+    .where(eq(users.id, u.id))
+  revalidatePath('/settings')
+}
+```
+
+Add the import at the top of the file:
+
+```ts
+import { normalizeSocial } from '@/lib/tags'
+```
+
+- [ ] **Step 6: Add the socials section to `src/app/settings/page.tsx`**
+
+```tsx
+<section className="space-y-2">
+  <h2 className="font-semibold">Get tagged</h2>
+  <p className="text-sm opacity-70">
+    We post the leaderboard weekly. Add your handle and we&apos;ll tag you when you&apos;re on it.
+    Your handle is never shown on the site.
+  </p>
+  <form action={setSocials} className="grid gap-2">
+    <input name="xHandle" placeholder="X handle (e.g. @omkar)" className="border p-2 rounded" />
+    <input name="instagramHandle" placeholder="Instagram handle" className="border p-2 rounded" />
+    <label className="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="tagOptIn" /> Tag me in posts
+    </label>
+    <button className="rounded bg-orange-600 px-4 py-2 text-white w-fit">Save</button>
+  </form>
+</section>
+```
+
+Add `setSocials` to the existing import from `./actions`.
+
+- [ ] **Step 7: Write `src/app/admin/page.tsx`**
+
+Gated to a single GitHub id from the environment. This page is for composing the weekly post.
+
+```tsx
+import { eq, inArray } from 'drizzle-orm'
+import { auth } from '@/auth'
+import { db } from '@/db/client'
+import { users } from '@/db/schema'
+import { getEntrants } from '@/lib/queries'
+import { rankBoard } from '@/lib/boards'
+import { buildTagLine } from '@/lib/tags'
+
+export const dynamic = 'force-dynamic'
+
+export default async function Admin() {
+  const session = await auth()
+  const handle = (session?.user as any)?.handle
+  const [me] = handle ? await db.select().from(users).where(eq(users.handle, handle)) : []
+  if (!me || me.githubId !== process.env.ADMIN_GITHUB_ID) {
+    return <main className="p-8">Not found.</main>
+  }
+
+  const entrants = await getEntrants('week')
+  const board = rankBoard('burn', entrants)
+  const rows = board.length
+    ? await db.select().from(users).where(inArray(users.handle, board.map((b) => b.handle)))
+    : []
+  const byHandle = new Map(rows.map((r) => [r.handle, r]))
+
+  const ordered = board.map((b) => ({
+    handle: b.handle,
+    xHandle: byHandle.get(b.handle)?.xHandle ?? null,
+    tagOptIn: byHandle.get(b.handle)?.tagOptIn ?? false,
+  }))
+
+  return (
+    <main className="mx-auto max-w-2xl p-8 space-y-6">
+      <h1 className="text-2xl font-bold">Weekly post</h1>
+
+      <div>
+        <h2 className="text-sm uppercase tracking-widest opacity-60">Tag line (top 10)</h2>
+        <textarea readOnly rows={3} className="mt-2 w-full rounded border p-3 font-mono text-sm"
+                  value={buildTagLine(ordered, 10)} />
+      </div>
+
+      <div>
+        <h2 className="text-sm uppercase tracking-widest opacity-60">
+          Registered ({rows.length} on this board · {ordered.filter(o => o.tagOptIn && o.xHandle).length} taggable)
+        </h2>
+        <ul className="mt-2 text-sm">
+          {ordered.map((o) => (
+            <li key={o.handle} className="flex justify-between border-b py-1">
+              <span>@{o.handle}</span>
+              <span className="opacity-60">{o.xHandle ? `@${o.xHandle}` : '—'} {o.tagOptIn ? '' : '(no tag)'}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </main>
+  )
+}
+```
+
+- [ ] **Step 8: Add the admin variable to `.env.example`**
+
+```
+ADMIN_GITHUB_ID=
+```
+
+- [ ] **Step 9: Verify**
+
+Run `pnpm dev`, set `ADMIN_GITHUB_ID` to your own GitHub numeric id, save an X handle at `/settings`
+with "Tag me in posts" checked, then visit `/admin`.
+Expected: the tag line contains your handle; unchecking the box removes it. Visiting `/admin` while
+signed in as anyone else renders "Not found."
+
+- [ ] **Step 10: Commit**
+
+```bash
+git add -A
+git commit -m "feat: optional social handles, tag opt-in, and admin weekly-post export"
 ```
 
 ---
