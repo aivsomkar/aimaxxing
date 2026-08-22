@@ -107,4 +107,27 @@ describe('deleteAllDataForUser', () => {
     const rows = await db.select().from(schema.toolDays).where(eq(schema.toolDays.userId, other.id))
     expect(rows).toHaveLength(1)
   })
+
+  it('removes published portfolio projects and private import candidates', async () => {
+    const user = await makeUser()
+    await db.insert(schema.portfolioProjects).values({
+      userId: user.id,
+      source: 'manual',
+      title: 'My site',
+      liveUrl: 'https://portfolio.example.com',
+    })
+    await db.insert(schema.portfolioImportSessions).values({
+      userId: user.id,
+      source: 'github',
+      candidates: [{ externalId: '1' }],
+      expiresAt: new Date('2026-08-23T00:00:00Z'),
+    })
+
+    await deleteAllDataForUser(db, user.id)
+
+    expect(await db.select().from(schema.portfolioProjects)
+      .where(eq(schema.portfolioProjects.userId, user.id))).toHaveLength(0)
+    expect(await db.select().from(schema.portfolioImportSessions)
+      .where(eq(schema.portfolioImportSessions.userId, user.id))).toHaveLength(0)
+  })
 })

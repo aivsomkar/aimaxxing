@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { users, toolDays, githubStats } from '@/db/schema'
+import { users, toolDays, githubStats, portfolioImportSessions, portfolioProjects } from '@/db/schema'
 
 // Loose enough to accept both the pglite-backed and node-postgres-backed
 // drizzle instances src/db/client.ts can hand back, without importing that
@@ -26,6 +26,8 @@ export async function setPublicOptInForUser(database: Database, userId: number, 
 // itself must not silently keep saying "yes, list me").
 export async function deleteAllDataForUser(database: Database, userId: number): Promise<void> {
   await database.transaction(async (tx: any) => {
+    await tx.delete(portfolioImportSessions).where(eq(portfolioImportSessions.userId, userId))
+    await tx.delete(portfolioProjects).where(eq(portfolioProjects.userId, userId))
     await tx.delete(toolDays).where(eq(toolDays.userId, userId))
     await tx.delete(githubStats).where(eq(githubStats.userId, userId))
     await tx.update(users)
