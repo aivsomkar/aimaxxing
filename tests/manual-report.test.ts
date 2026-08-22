@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseManualReportForm } from '../src/lib/manual-report'
+import { parseManualReportForm, validateManualReportForm } from '../src/lib/manual-report'
 
 function form(fields: Record<string, string>): FormData {
   const fd = new FormData()
@@ -12,6 +12,10 @@ const validFields = {
   model: 'Sonnet',
   day: '2026-08-21',
   sessions: '3',
+  tokensIn: '100',
+  tokensOut: '50',
+  cacheRead: '25',
+  cacheWrite: '10',
   costUsd: '4.50',
 }
 
@@ -37,12 +41,12 @@ describe('parseManualReportForm', () => {
     expect(row.source).toBe('manual')
   })
 
-  it('zeroes out token fields, since manual entries carry no token telemetry', () => {
+  it('normalizes optional token telemetry supplied by the account owner', () => {
     const [row] = parseManualReportForm(form(validFields))
-    expect(row.tokensIn).toBe(0)
-    expect(row.tokensOut).toBe(0)
-    expect(row.cacheRead).toBe(0)
-    expect(row.cacheWrite).toBe(0)
+    expect(row.tokensIn).toBe(100)
+    expect(row.tokensOut).toBe(50)
+    expect(row.cacheRead).toBe(25)
+    expect(row.cacheWrite).toBe(10)
   })
 
   it('rejects a malformed day via the same schema the API route uses', () => {
@@ -55,5 +59,52 @@ describe('parseManualReportForm', () => {
 
   it('rejects a tool name that is symbols-only and slugs down to nothing', () => {
     expect(() => parseManualReportForm(form({ ...validFields, tool: '★★★' }))).toThrow()
+  })
+
+  it('accepts a token-only report and defaults blank optional numbers to zero', () => {
+    const result = validateManualReportForm(form({
+      ...validFields,
+      sessions: '',
+      costUsd: '',
+      tokensIn: '42',
+      tokensOut: '',
+      cacheRead: '',
+      cacheWrite: '',
+    }))
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.rows[0]).toMatchObject({
+        sessions: 0, tokensIn: 42, tokensOut: 0, cacheRead: 0, cacheWrite: 0,
+        costUsd: '0.0000', verified: false,
+      })
+    }
+  })
+
+  it('returns named field errors for invalid values', () => {
+    const result = validateManualReportForm(form({
+      ...validFields,
+      day: 'not-a-date',
+      tokensOut: '-2',
+    }))
+    expect(result).toMatchObject({
+      success: false,
+      errors: { day: expect.any(String), tokensOut: expect.any(String) },
+    })
+  })
+
+  it('requires at least one positive session, spend, or token count', () => {
+    const result = validateManualReportForm(form({
+      ...validFields,
+      sessions: '0',
+      costUsd: '0',
+      tokensIn: '0',
+      tokensOut: '0',
+      cacheRead: '0',
+      cacheWrite: '0',
+    }))
+    expect(result).toMatchObject({
+      success: false,
+      errors: { sessions: expect.any(String) },
+    })
   })
 })

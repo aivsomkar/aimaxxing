@@ -12,4 +12,10 @@ describe('deriveHandle', () => {
   it('falls back for a login that reduces to nothing', () => {
     expect(deriveHandle('!!!', new Set())).toMatch(/^dev-/)
   })
+  it.each(['methodology', 'settings', 'report', 'signin', 'sponsor', 'api', 'link'])(
+    'never assigns the reserved product route %s',
+    (segment) => {
+      expect(deriveHandle(segment, new Set())).toBe(`${segment}-2`)
+    },
+  )
 })
