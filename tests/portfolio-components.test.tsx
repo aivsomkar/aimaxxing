@@ -2,6 +2,7 @@ import * as React from 'react'
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { PortfolioGrid } from '../src/components/PortfolioGrid'
+import { PortfolioManager } from '../src/components/PortfolioManager'
 
 describe('PortfolioGrid', () => {
   it('renders nothing when a user has not selected any live projects', () => {
@@ -38,5 +39,21 @@ describe('PortfolioGrid', () => {
     expect(html).toContain('signal.example')
     expect(html).toContain('target="_blank"')
     expect(html).toContain('rel="noreferrer noopener"')
+  })
+})
+
+describe('PortfolioManager', () => {
+  it('offers provider imports and all fields needed to add a website manually', () => {
+    const html = renderToStaticMarkup(
+      <PortfolioManager projects={[]} importSession={null} />,
+    )
+
+    expect(html).toContain('Import from GitHub')
+    expect(html).toContain('Connect Vercel')
+    expect(html).toContain('Add another website')
+    expect(html).toContain('name="title"')
+    expect(html).toContain('name="liveUrl"')
+    expect(html).toContain('name="description"')
+    expect(html).toContain('name="repositoryUrl"')
   })
 })
