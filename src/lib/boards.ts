@@ -5,6 +5,7 @@ export type BoardKind = 'burn' | 'breadth' | 'efficiency' | 'index'
 export type Entrant = {
   handle: string
   avatarUrl: string | null
+  xHandle: string | null
   tools: ToolDepth[]
   costUsd: number
   mergedPrs: number
@@ -15,6 +16,7 @@ export type Entrant = {
 export type BoardEntry = {
   handle: string
   avatarUrl: string | null
+  xHandle: string | null
   value: number
   verified: boolean
   toolCount: number
@@ -37,7 +39,7 @@ export function rankBoard(kind: BoardKind, entrants: Entrant[]): BoardEntry[] {
     }
 
     return [{
-      handle: e.handle, avatarUrl: e.avatarUrl, value,
+      handle: e.handle, avatarUrl: e.avatarUrl, xHandle: e.xHandle, value,
       verified: !e.anyUnverified, toolCount, index: breakdown.index,
     }]
   })

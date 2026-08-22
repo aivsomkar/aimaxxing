@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { rankBoard } from '../src/lib/boards'
 
 const e = (handle: string, o: Partial<any> = {}) => ({
-  handle, avatarUrl: null,
+  handle, avatarUrl: null, xHandle: null,
   tools: [{ tool: 'claude-code', sessions: 100, costUsd: 50 }],
   costUsd: 50, mergedPrs: 0, contributions: 0, anyUnverified: false, ...o,
 })
@@ -58,5 +58,10 @@ describe('rankBoard', () => {
     expect(r.map(x => x.handle)).toEqual(['with_output', 'without_output'])
     expect(r[0].value).toBeCloseTo(12, 5)
     expect(r[1].value).toBeCloseTo(10, 5)
+  })
+
+  it('carries a public X handle into every ranked board entry', () => {
+    const [row] = rankBoard('index', [e('social', { xHandle: '@social_dev' })])
+    expect(row.xHandle).toBe('@social_dev')
   })
 })

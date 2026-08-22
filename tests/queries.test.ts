@@ -187,6 +187,27 @@ describe('getEntrants', () => {
     expect(unshipped.mergedPrs).toBe(0)
     expect(unshipped.contributions).toBe(0)
   })
+
+  it('returns an X handle only when the user enabled its visibility', async () => {
+    const [visible] = await db.insert(users).values({
+      githubId: '7', handle: 'social', publicOptIn: true,
+      xHandle: '@social_dev', tagOptIn: true,
+    }).returning()
+    const [hidden] = await db.insert(users).values({
+      githubId: '8', handle: 'quiet', publicOptIn: true,
+      xHandle: '@private_dev', tagOptIn: false,
+    }).returning()
+    await db.insert(toolDays).values([
+      { userId: visible.id, tool: 'codex', model: 'gpt-5', day: '2026-08-22',
+        sessions: 25, costUsd: '2.0000', source: 'reporter', verified: true },
+      { userId: hidden.id, tool: 'codex', model: 'gpt-5', day: '2026-08-22',
+        sessions: 25, costUsd: '2.0000', source: 'reporter', verified: true },
+    ])
+
+    const entrants = await getEntrants('all')
+    expect(entrants.find((entry) => entry.handle === 'social')?.xHandle).toBe('@social_dev')
+    expect(entrants.find((entry) => entry.handle === 'quiet')?.xHandle).toBeNull()
+  })
 })
 
 describe('getProfile', () => {
@@ -229,6 +250,20 @@ describe('getProfile', () => {
     })
     const profile = await getProfile('tagshy')
     expect(Object.keys(profile!.user).sort()).toEqual(['avatarUrl', 'handle', 'id', 'publicOptIn'])
+    expect(profile!.xHandle).toBeNull()
+  })
+
+  it('returns a public X handle at the profile level when its visibility is enabled', async () => {
+    const [u] = await db.insert(users).values({
+      githubId: 'gh-social', handle: 'social-profile', publicOptIn: true,
+      xHandle: '@social_dev', tagOptIn: true,
+    }).returning()
+    await db.insert(toolDays).values({
+      userId: u.id, tool: 'codex', model: 'gpt-5', day: '2026-08-22',
+      sessions: 25, costUsd: '2.0000', source: 'reporter', verified: true,
+    })
+
+    expect((await getProfile('social-profile'))!.xHandle).toBe('@social_dev')
   })
 
   it('returns the profile for an opted-in user, aggregating tools per tool across models and days', async () => {

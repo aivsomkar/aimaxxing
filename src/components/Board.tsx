@@ -1,4 +1,6 @@
+import * as React from 'react'
 import type { BoardEntry } from '@/lib/boards'
+import { XHandleLink } from '@/components/XHandleLink'
 
 export function Board({
   title,
@@ -16,9 +18,12 @@ export function Board({
         {entries.slice(0, 25).map((e, i) => (
           <li key={e.handle} className="flex items-center gap-3 py-2">
             <span className="w-8 font-mono tabular-nums text-muted-foreground">{i + 1}</span>
-            <a href={`/@${e.handle}`} className="flex-1 truncate hover:underline">
-              @{e.handle}
-            </a>
+            <div className="min-w-0 flex-1">
+              <a href={`/@${e.handle}`} className="block truncate hover:underline">
+                @{e.handle}
+              </a>
+              {e.xHandle && <XHandleLink handle={e.xHandle} className="mt-0.5" />}
+            </div>
             <span className="text-xs text-muted-foreground">
               <span className="font-mono tabular-nums">{e.toolCount}</span>{' '}
               {e.toolCount === 1 ? 'tool' : 'tools'}

@@ -1,10 +1,12 @@
 'use server'
 import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { db } from '@/db/client'
 import { users } from '@/db/schema'
-import { setPublicOptInForUser, deleteAllDataForUser } from '@/lib/account'
+import { setPublicOptInForUser, deleteAllDataForUser, setXHandleForUser } from '@/lib/account'
+import { validateXHandle } from '@/lib/social'
 
 // Not unit-tested directly: it calls next-auth's auth(), which needs the
 // request-scoped machinery Next wires up at request time. The mutations it
@@ -30,4 +32,17 @@ export async function deleteAllData() {
   const u = await currentUser()
   await deleteAllDataForUser(db, u.id)
   revalidatePath('/')
+}
+
+export async function saveXHandle(formData: FormData) {
+  const u = await currentUser()
+  const input = String(formData.get('xHandle') ?? '')
+  const result = validateXHandle(input)
+  if (!result.ok) redirect(`/settings?error=${encodeURIComponent(result.error)}`)
+
+  await setXHandleForUser(db, u.id, input)
+  revalidatePath('/')
+  revalidatePath(`/@${u.handle}`)
+  revalidatePath(`/${u.handle}`)
+  redirect(`/settings?notice=${result.value ? 'X%20handle%20published' : 'X%20handle%20removed'}`)
 }

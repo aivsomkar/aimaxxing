@@ -40,6 +40,11 @@ export default async function OpenGraphImage({ params }: { params: Promise<{ han
           <span style={{ marginTop: 10, fontSize: 52, lineHeight: 1, fontWeight: 700, letterSpacing: -2 }}>
             {card.handle}
           </span>
+          {card.xHandle && (
+            <span style={{ marginTop: 12, color: '#a8a09a', fontSize: 20, letterSpacing: 1 }}>
+              𝕏 {card.xHandle}
+            </span>
+          )}
 
           <div style={{ display: 'flex', gap: 12, marginTop: 34 }}>
             {[card.toolLabel, card.projectLabel, card.verificationLabel].map((label) => (

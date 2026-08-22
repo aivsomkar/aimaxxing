@@ -10,6 +10,7 @@ import {
 import { canAppearOnBoards } from '@/lib/consent'
 import { formatUsd } from '@/lib/format'
 import { PortfolioGrid } from '@/components/PortfolioGrid'
+import { XHandleLink } from '@/components/XHandleLink'
 
 // NOTE for future editors: this directory MUST be named `[handle]`, not
 // `@[handle]`. A leading `@` in a Next.js route segment name declares a
@@ -56,12 +57,15 @@ export default async function Profile({ params }: { params: Promise<{ handle: st
           )}
           <div>
             <h1 className="text-2xl font-bold">@{p.user.handle}</h1>
-            <span
-              className="text-xs text-muted-foreground"
-              title={p.anyUnverified ? 'Includes self-reported usage' : 'All usage verified'}
-            >
-              {p.anyUnverified ? '🔶 self-reported' : '✅ verified'}
-            </span>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span
+                className="text-xs text-muted-foreground"
+                title={p.anyUnverified ? 'Includes self-reported usage' : 'All usage verified'}
+              >
+                {p.anyUnverified ? '🔶 self-reported' : '✅ verified'}
+              </span>
+              {p.xHandle && <XHandleLink handle={p.xHandle} />}
+            </div>
           </div>
         </div>
         <div className="text-right">

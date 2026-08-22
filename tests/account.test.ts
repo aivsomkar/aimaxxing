@@ -10,7 +10,11 @@ import { drizzle } from 'drizzle-orm/pglite'
 import { migrate } from 'drizzle-orm/pglite/migrator'
 import { eq } from 'drizzle-orm'
 import * as schema from '../src/db/schema'
-import { setPublicOptInForUser, deleteAllDataForUser } from '../src/lib/account'
+import {
+  setPublicOptInForUser,
+  deleteAllDataForUser,
+  setXHandleForUser,
+} from '../src/lib/account'
 
 let client: PGlite
 let db: ReturnType<typeof drizzle<typeof schema>>
@@ -47,6 +51,36 @@ describe('setPublicOptInForUser', () => {
     await setPublicOptInForUser(db, user.id, false)
     const [row] = await db.select().from(schema.users).where(eq(schema.users.id, user.id))
     expect(row.publicOptIn).toBe(false)
+  })
+})
+
+describe('setXHandleForUser', () => {
+  it('normalizes a saved handle and automatically enables its public visibility', async () => {
+    const user = await makeUser()
+    await setXHandleForUser(db, user.id, ' https://x.com/Omkar_AI ')
+
+    const [row] = await db.select().from(schema.users).where(eq(schema.users.id, user.id))
+    expect(row.xHandle).toBe('@Omkar_AI')
+    expect(row.tagOptIn).toBe(true)
+  })
+
+  it('clears the handle and disables its public visibility', async () => {
+    const user = await makeUser()
+    await setXHandleForUser(db, user.id, '@omkar')
+    await setXHandleForUser(db, user.id, '')
+
+    const [row] = await db.select().from(schema.users).where(eq(schema.users.id, user.id))
+    expect(row.xHandle).toBeNull()
+    expect(row.tagOptIn).toBe(false)
+  })
+
+  it('rejects malformed handles without changing the user', async () => {
+    const user = await makeUser()
+    await expect(setXHandleForUser(db, user.id, 'not-valid!'))
+      .rejects.toThrow('invalid X handle')
+    const [row] = await db.select().from(schema.users).where(eq(schema.users.id, user.id))
+    expect(row.xHandle).toBeNull()
+    expect(row.tagOptIn).toBe(false)
   })
 })
 

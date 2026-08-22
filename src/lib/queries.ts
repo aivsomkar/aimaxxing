@@ -56,6 +56,7 @@ export async function getEntrants(window: Window, today = new Date()): Promise<E
   // filtered out before this function returns anything to its caller.
   const rows = await db.select({
     handle: users.handle, avatarUrl: users.avatarUrl, publicOptIn: users.publicOptIn,
+    xHandle: users.xHandle, tagOptIn: users.tagOptIn,
     userId: users.id, tool: toolDays.tool, sessions: toolDays.sessions,
     costUsd: toolDays.costUsd, verified: toolDays.verified,
   })
@@ -74,6 +75,7 @@ export async function getEntrants(window: Window, today = new Date()): Promise<E
       e = {
         userId: r.userId, publicOptIn: r.publicOptIn,
         handle: r.handle, avatarUrl: r.avatarUrl,
+        xHandle: r.tagOptIn ? r.xHandle : null,
         tools: [], costUsd: 0,
         mergedPrs: s?.mergedPrs ?? 0, contributions: s?.contributions ?? 0,
         anyUnverified: false,
@@ -95,13 +97,9 @@ export async function getEntrants(window: Window, today = new Date()): Promise<E
     .map(({ userId, publicOptIn, ...entrant }) => entrant)
 }
 
-// Narrow public shape of a user row. Deliberately excludes xHandle,
-// instagramHandle, tagOptIn and githubId: the handle fields are gated by
-// tagOptIn — a DIFFERENT consent flag from publicOptIn, the one this file's
-// isPublic() checks — and githubId is an internal identifier with no reason
-// to reach a public caller. Narrowing the SQL projection (rather than
-// selecting the full row and omitting fields at the call site) means the PII
-// is absent from the returned type, not just unused by today's callers.
+// Narrow public shape of a user row. Social consent stays outside this object:
+// getProfile returns only the X handle at top level when tagOptIn is true,
+// while instagramHandle, tagOptIn, and githubId never reach public callers.
 type PublicUser = {
   id: number
   handle: string
@@ -121,6 +119,7 @@ export type PublicPortfolioProject = {
 
 export async function getProfile(handle: string): Promise<{
   user: PublicUser
+  xHandle: string | null
   tools: ToolDepth[]
   costUsd: number
   mergedPrs: number
@@ -134,6 +133,8 @@ export async function getProfile(handle: string): Promise<{
       handle: users.handle,
       avatarUrl: users.avatarUrl,
       publicOptIn: users.publicOptIn,
+      xHandle: users.xHandle,
+      tagOptIn: users.tagOptIn,
     })
     .from(users)
     .where(eq(users.handle, handle))
@@ -173,7 +174,14 @@ export async function getProfile(handle: string): Promise<{
     else tools.push({ tool: r.tool, sessions: r.sessions, costUsd: c })
   }
   return {
-    user: u, tools, costUsd,
+    user: {
+      id: u.id,
+      handle: u.handle,
+      avatarUrl: u.avatarUrl,
+      publicOptIn: u.publicOptIn,
+    },
+    xHandle: u.tagOptIn ? u.xHandle : null,
+    tools, costUsd,
     mergedPrs: s?.mergedPrs ?? 0, contributions: s?.contributions ?? 0,
     anyUnverified, projects,
   }

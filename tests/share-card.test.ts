@@ -10,6 +10,7 @@ describe('decodeShareHandle', () => {
 describe('buildShareCardData', () => {
   const profile = {
     user: { id: 1, handle: 'omkar', avatarUrl: null, publicOptIn: true },
+    xHandle: '@omkar_ai',
     tools: [
       { tool: 'codex', sessions: 25, costUsd: 75.5 },
       { tool: 'claude-code', sessions: 25, costUsd: 50 },
@@ -27,6 +28,7 @@ describe('buildShareCardData', () => {
   it('formats the shared Index, spend, verification, tools, and live projects', () => {
     expect(buildShareCardData(profile)).toMatchObject({
       handle: '@omkar',
+      xHandle: '@omkar_ai',
       index: '14.0',
       spend: '$125.50',
       verificationLabel: 'VERIFIED USAGE',

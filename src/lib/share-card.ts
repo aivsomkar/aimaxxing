@@ -23,6 +23,7 @@ export function buildShareCardData(profile: Profile) {
 
   return {
     handle: `@${profile.user.handle}`,
+    xHandle: profile.xHandle,
     index: breakdown.index.toLocaleString(undefined, {
       minimumFractionDigits: 1,
       maximumFractionDigits: 1,

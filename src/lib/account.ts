@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { users, toolDays, githubStats, portfolioImportSessions, portfolioProjects } from '@/db/schema'
+import { validateXHandle } from '@/lib/social'
 
 // Loose enough to accept both the pglite-backed and node-postgres-backed
 // drizzle instances src/db/client.ts can hand back, without importing that
@@ -14,6 +15,18 @@ type Database = {
 // auth-checking wrapper around this.
 export async function setPublicOptInForUser(database: Database, userId: number, value: boolean): Promise<void> {
   await database.update(users).set({ publicOptIn: value }).where(eq(users.id, userId))
+}
+
+export async function setXHandleForUser(
+  database: Database,
+  userId: number,
+  input: string,
+): Promise<void> {
+  const result = validateXHandle(input)
+  if (!result.ok) throw new Error('invalid X handle')
+  await database.update(users)
+    .set({ xHandle: result.value, tagOptIn: result.value !== null })
+    .where(eq(users.id, userId))
 }
 
 // Deletion also resets publicOptIn and clears xHandle/instagramHandle/tagOptIn,

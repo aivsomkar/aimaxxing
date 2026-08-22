@@ -19,6 +19,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ handle: st
   const breakdown = computeIndex(p.tools, { mergedPrs: p.mergedPrs, contributions: p.contributions })
   return NextResponse.json({
     handle: p.user.handle,
+    xHandle: p.xHandle,
     avatarUrl: p.user.avatarUrl,
     costUsd: p.costUsd,
     anyUnverified: p.anyUnverified,
