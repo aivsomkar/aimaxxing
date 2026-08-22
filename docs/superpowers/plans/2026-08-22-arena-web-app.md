@@ -443,7 +443,7 @@ git commit -m "feat: Index formula with qualifying floor and capped additive out
 ```ts
 // tests/collective.test.ts
 import { describe, it, expect } from 'vitest'
-import { collectiveTotals, shareByModel } from '../src/lib/collective'
+import { collectiveTotals, shareByModel, shareByTool } from '../src/lib/collective'
 
 const row = (o: Partial<any> = {}) => ({
   tool: 'claude-code', model: 'opus', costUsd: 10,
@@ -484,6 +484,36 @@ describe('shareByModel', () => {
 
   it('returns an empty array rather than dividing by zero', () => {
     expect(shareByModel([])).toEqual([])
+  })
+
+  // The guard protects a real case: verified rows that all cost nothing.
+  // Without it these produce NaN shares, which would render in the homepage chart.
+  it('returns an empty array when every verified row has zero cost', () => {
+    expect(shareByModel([row({ costUsd: 0 }), row({ costUsd: 0 })])).toEqual([])
+  })
+})
+
+describe('shareByTool', () => {
+  it('excludes self-reported rows, same as shareByModel', () => {
+    const rows = [
+      row({ tool: 'claude-code', costUsd: 10, verified: true }),
+      row({ tool: 'opencode', costUsd: 90, verified: false }),
+    ]
+    const shares = shareByTool(rows)
+    expect(shares).toHaveLength(1)
+    expect(shares[0].tool).toBe('claude-code')
+    expect(shares[0].share).toBeCloseTo(1, 5)
+  })
+
+  it('excludes sponsored rows and keys on tool rather than model', () => {
+    const rows = [
+      row({ tool: 'aider', model: 'opus', costUsd: 40 }),
+      row({ tool: 'codex-cli', model: 'opus', costUsd: 60 }),
+      row({ tool: 'cursor', model: 'opus', costUsd: 999, sponsored: true }),
+    ]
+    const shares = shareByTool(rows)
+    expect(shares.map((s) => s.tool)).toEqual(['codex-cli', 'aider'])
+    expect(shares.reduce((a, s) => a + s.share, 0)).toBeCloseTo(1, 5)
   })
 })
 ```
@@ -549,7 +579,7 @@ export function shareByTool(rows: BurnRow[]) {
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `pnpm vitest run tests/collective.test.ts`
-Expected: PASS (5 tests)
+Expected: PASS (8 tests)
 
 - [ ] **Step 5: Commit**
 
