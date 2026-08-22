@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { eq } from 'drizzle-orm'
 import { auth } from '@/auth'
 import { db } from '@/db/client'
-import { users, toolDays } from '@/db/schema'
-import { reportSchema, normalizeReport } from '@/lib/ingest'
+import { users } from '@/db/schema'
+import { reportSchema, normalizeReport, writeReport } from '@/lib/ingest'
 
 export async function POST(req: Request) {
   const session = await auth()
@@ -20,12 +20,10 @@ export async function POST(req: Request) {
 
   // Plan 2 (the reporter CLI) adds signature verification and passes 'reporter' here.
   const rows = normalizeReport(parsed.data, 'manual')
-  for (const r of rows) {
-    await db.insert(toolDays).values({ userId: user.id, ...r })
-      .onConflictDoUpdate({
-        target: [toolDays.userId, toolDays.tool, toolDays.model, toolDays.day],
-        set: { ...r },
-      })
+  try {
+    await writeReport(db, user.id, rows)
+  } catch (err) {
+    return NextResponse.json({ error: 'failed to write report', message: String(err) }, { status: 500 })
   }
   return NextResponse.json({ ok: true, rows: rows.length })
 }

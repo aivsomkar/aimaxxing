@@ -21,6 +21,18 @@ describe('reportSchema', () => {
     const bad = { days: [{ ...payload.days[0], costUsd: 1_000_000 }] }
     expect(reportSchema.safeParse(bad).success).toBe(false)
   })
+  it('rejects a day that matches the format but is not a real calendar date', () => {
+    const bad = { days: [{ ...payload.days[0], day: '2026-13-99' }] }
+    expect(reportSchema.safeParse(bad).success).toBe(false)
+  })
+  it('rejects a tool that is only symbols and slugs down to nothing', () => {
+    const bad = { days: [{ ...payload.days[0], tool: '★★★' }] }
+    expect(reportSchema.safeParse(bad).success).toBe(false)
+  })
+  it('rejects a model that is only CJK characters outside the slug charset', () => {
+    const bad = { days: [{ ...payload.days[0], model: '日本語' }] }
+    expect(reportSchema.safeParse(bad).success).toBe(false)
+  })
   it('accepts a well-formed payload', () => {
     expect(reportSchema.safeParse(payload).success).toBe(true)
   })

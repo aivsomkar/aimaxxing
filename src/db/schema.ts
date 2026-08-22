@@ -1,4 +1,4 @@
-import { pgTable, text, integer, boolean, timestamp, date, numeric, uniqueIndex, serial } from 'drizzle-orm/pg-core'
+import { pgTable, text, integer, bigint, boolean, timestamp, date, numeric, uniqueIndex, serial } from 'drizzle-orm/pg-core'
 
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
@@ -21,10 +21,12 @@ export const toolDays = pgTable('tool_days', {
   model: text('model').notNull(),
   day: date('day').notNull(),
   sessions: integer('sessions').notNull().default(0),
-  tokensIn: integer('tokens_in').notNull().default(0),
-  tokensOut: integer('tokens_out').notNull().default(0),
-  cacheRead: integer('cache_read').notNull().default(0),
-  cacheWrite: integer('cache_write').notNull().default(0),
+  // bigint, not integer: int4 caps at 2,147,483,647 tokens. Cache-read counts alone
+  // pass that in normal use, and the collective rollup passes it far sooner.
+  tokensIn: bigint('tokens_in', { mode: 'number' }).notNull().default(0),
+  tokensOut: bigint('tokens_out', { mode: 'number' }).notNull().default(0),
+  cacheRead: bigint('cache_read', { mode: 'number' }).notNull().default(0),
+  cacheWrite: bigint('cache_write', { mode: 'number' }).notNull().default(0),
   costUsd: numeric('cost_usd', { precision: 12, scale: 4 }).notNull().default('0'),
   source: text('source').notNull(),        // 'reporter' | 'manual'
   verified: boolean('verified').notNull().default(false),
@@ -43,10 +45,12 @@ export const githubStats = pgTable('github_stats', {
 
 export const collectiveDays = pgTable('collective_days', {
   day: date('day').primaryKey(),
-  tokensIn: integer('tokens_in').notNull().default(0),
-  tokensOut: integer('tokens_out').notNull().default(0),
-  cacheRead: integer('cache_read').notNull().default(0),
-  cacheWrite: integer('cache_write').notNull().default(0),
+  // bigint is mandatory here: this is the homepage hero counter. One day's collective
+  // tokens across a few hundred developers exceeds int4.
+  tokensIn: bigint('tokens_in', { mode: 'number' }).notNull().default(0),
+  tokensOut: bigint('tokens_out', { mode: 'number' }).notNull().default(0),
+  cacheRead: bigint('cache_read', { mode: 'number' }).notNull().default(0),
+  cacheWrite: bigint('cache_write', { mode: 'number' }).notNull().default(0),
   costUsd: numeric('cost_usd', { precision: 14, scale: 4 }).notNull().default('0'),
 })
 

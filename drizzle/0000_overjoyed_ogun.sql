@@ -1,9 +1,9 @@
 CREATE TABLE "collective_days" (
 	"day" date PRIMARY KEY NOT NULL,
-	"tokens_in" integer DEFAULT 0 NOT NULL,
-	"tokens_out" integer DEFAULT 0 NOT NULL,
-	"cache_read" integer DEFAULT 0 NOT NULL,
-	"cache_write" integer DEFAULT 0 NOT NULL,
+	"tokens_in" bigint DEFAULT 0 NOT NULL,
+	"tokens_out" bigint DEFAULT 0 NOT NULL,
+	"cache_read" bigint DEFAULT 0 NOT NULL,
+	"cache_write" bigint DEFAULT 0 NOT NULL,
 	"cost_usd" numeric(14, 4) DEFAULT '0' NOT NULL
 );
 --> statement-breakpoint
@@ -32,10 +32,10 @@ CREATE TABLE "tool_days" (
 	"model" text NOT NULL,
 	"day" date NOT NULL,
 	"sessions" integer DEFAULT 0 NOT NULL,
-	"tokens_in" integer DEFAULT 0 NOT NULL,
-	"tokens_out" integer DEFAULT 0 NOT NULL,
-	"cache_read" integer DEFAULT 0 NOT NULL,
-	"cache_write" integer DEFAULT 0 NOT NULL,
+	"tokens_in" bigint DEFAULT 0 NOT NULL,
+	"tokens_out" bigint DEFAULT 0 NOT NULL,
+	"cache_read" bigint DEFAULT 0 NOT NULL,
+	"cache_write" bigint DEFAULT 0 NOT NULL,
 	"cost_usd" numeric(12, 4) DEFAULT '0' NOT NULL,
 	"source" text NOT NULL,
 	"verified" boolean DEFAULT false NOT NULL,

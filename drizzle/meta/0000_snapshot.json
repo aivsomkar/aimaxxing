@@ -1,5 +1,5 @@
 {
-  "id": "cfe34336-6fce-44eb-b136-db9ebe709764",
+  "id": "11218197-1840-4570-aab7-ad6ba71e1af6",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -16,28 +16,28 @@
         },
         "tokens_in": {
           "name": "tokens_in",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true,
           "default": 0
         },
         "tokens_out": {
           "name": "tokens_out",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true,
           "default": 0
         },
         "cache_read": {
           "name": "cache_read",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true,
           "default": 0
         },
         "cache_write": {
           "name": "cache_write",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true,
           "default": 0
@@ -217,28 +217,28 @@
         },
         "tokens_in": {
           "name": "tokens_in",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true,
           "default": 0
         },
         "tokens_out": {
           "name": "tokens_out",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true,
           "default": 0
         },
         "cache_read": {
           "name": "cache_read",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true,
           "default": 0
         },
         "cache_write": {
           "name": "cache_write",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true,
           "default": 0
