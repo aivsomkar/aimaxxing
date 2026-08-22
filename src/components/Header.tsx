@@ -1,21 +1,20 @@
-import { auth, signOut } from '@/auth'
-import { HeaderNav } from '@/components/HeaderNav'
+'use client'
 
-export async function Header() {
-  const session = await auth()
-  const user = session?.user as { handle?: string; publicOptIn?: boolean } | undefined
-  const viewer = user?.handle
-    ? { handle: user.handle, publicOptIn: user.publicOptIn === true }
-    : null
+import { signOut, useSession } from 'next-auth/react'
+import { HeaderNav } from '@/components/HeaderNav'
+import { viewerFromSession } from '@/lib/auth-session'
+
+export function Header() {
+  const { data: session, status } = useSession()
+  const viewer = viewerFromSession(session)
 
   async function logout() {
-    'use server'
     await signOut({ redirectTo: '/' })
   }
 
   return (
     <header className="border-b border-border">
-      <HeaderNav viewer={viewer} onSignOut={logout} />
+      <HeaderNav viewer={viewer} onSignOut={logout} pending={status === 'loading'} />
     </header>
   )
 }

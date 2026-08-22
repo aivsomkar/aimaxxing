@@ -1,23 +1,20 @@
-import Link from 'next/link'
-import { auth } from '@/auth'
 import { LiveStatBar } from '@/components/LiveStatBar'
 import { CollectiveCounter } from '@/components/CollectiveCounter'
 import { ModelSplit } from '@/components/ModelSplit'
 import { Board } from '@/components/Board'
-import { getCollectiveSummary, getEntrants, getProfileForViewer } from '@/lib/queries'
+import { PrivateProfileNotice } from '@/components/PrivateProfileNotice'
+import { getCollectiveSummary, getEntrants } from '@/lib/queries'
+import { loadPublicHomeData } from '@/lib/home-data'
 import { rankBoard } from '@/lib/boards'
 import { formatUsd } from '@/lib/format'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 15
 
 export default async function Home() {
-  const session = await auth()
-  const viewerHandle = (session?.user as { handle?: string } | undefined)?.handle ?? null
-  const viewerProfile = viewerHandle
-    ? await getProfileForViewer(viewerHandle, viewerHandle)
-    : null
-  const summary = await getCollectiveSummary()
-  const entrants = await getEntrants('all')
+  const { summary, entrants } = await loadPublicHomeData(
+    () => getCollectiveSummary(),
+    () => getEntrants('all'),
+  )
 
   return (
     <>
@@ -26,14 +23,7 @@ export default async function Home() {
       <LiveStatBar developers={summary.developers} tokensTotal={summary.totals.tokensTotal} costUsd={summary.totals.costUsd} />
 
       <main className="mx-auto max-w-4xl px-6">
-        {viewerHandle && !viewerProfile?.isPublic && (
-          <div className="mt-6 flex flex-col justify-between gap-3 border border-primary/30 bg-primary/10 px-4 py-3 text-sm sm:flex-row sm:items-center">
-            <span>Your profile is private. Finish setup, preview your card, and publish when it is ready.</span>
-            <Link className="inline-flex min-h-11 shrink-0 items-center font-semibold text-primary underline underline-offset-4" href="/settings">
-              Open dashboard
-            </Link>
-          </div>
-        )}
+        <PrivateProfileNotice />
         <CollectiveCounter
           initial={{
             costUsd: summary.totals.costUsd,

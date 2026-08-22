@@ -25,6 +25,7 @@ import {
   getEntrants,
   getProfileForViewer,
   getProfileRecord,
+  getProfileVisibility,
   getPublicProfile,
 } from '../src/lib/queries'
 import { collectiveTotals, shareByModel } from '../src/lib/collective'
@@ -281,6 +282,25 @@ describe('getEntrants', () => {
 
 describe('profile query layers', () => {
   beforeEach(reset)
+
+  it('reports an opted-in but empty profile as not publicly visible', async () => {
+    await db.insert(users).values({
+      githubId: 'visibility-empty', handle: 'visibility-empty', publicOptIn: true,
+    })
+
+    await expect(getProfileVisibility('visibility-empty')).resolves.toEqual({ isPublic: false })
+  })
+
+  it('reports a selected-project-only profile as publicly visible', async () => {
+    const [user] = await db.insert(users).values({
+      githubId: 'visibility-project', handle: 'visibility-project', publicOptIn: true,
+    }).returning()
+    await db.insert(portfolioProjects).values({
+      userId: user.id, source: 'manual', title: 'Live app', liveUrl: 'https://visibility.example',
+    })
+
+    await expect(getProfileVisibility('visibility-project')).resolves.toEqual({ isPublic: true })
+  })
 
   it('returns null for a handle that does not exist', async () => {
     expect(await getPublicProfile('nobody')).toBeNull()

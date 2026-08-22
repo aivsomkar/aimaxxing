@@ -24,4 +24,11 @@ describe('HeaderNav', () => {
     expect(html).toContain('Sign out')
     expect(html).not.toContain('href="/signin"')
   })
+
+  it('keeps account navigation stable while the client session loads', () => {
+    const html = renderToStaticMarkup(<HeaderNav viewer={null} pending />)
+    expect(html).toContain('Loading account')
+    expect(html).not.toContain('href="/signin"')
+    expect(html).not.toContain('Settings')
+  })
 })

@@ -355,6 +355,38 @@ export async function getPublicProfile(handle: string): Promise<ProfileRecord | 
   return profile
 }
 
+export async function getProfileVisibility(handle: string): Promise<{ isPublic: boolean } | null> {
+  const [user] = await db
+    .select({ id: users.id, publicOptIn: users.publicOptIn })
+    .from(users)
+    .where(eq(users.handle, handle))
+  if (!user) return null
+  if (!user.publicOptIn) return { isPublic: false }
+
+  const [manualRows, reporterRows, projectRows, outputRows] = await Promise.all([
+    db.select({ id: toolDays.id }).from(toolDays).where(eq(toolDays.userId, user.id)).limit(1),
+    db.select({ id: reporterToolDays.id }).from(reporterToolDays)
+      .where(eq(reporterToolDays.userId, user.id)).limit(1),
+    db.select({ id: portfolioProjects.id }).from(portfolioProjects)
+      .where(eq(portfolioProjects.userId, user.id)).limit(1),
+    db.select({
+      mergedPrs: githubStats.mergedPrs,
+      activeRepos: githubStats.activeRepos,
+      contributions: githubStats.contributions,
+    }).from(githubStats).where(eq(githubStats.userId, user.id)),
+  ])
+  const output = outputRows[0]
+  return {
+    isPublic: hasShowcaseContent({
+      usageRows: manualRows.length + reporterRows.length,
+      projects: projectRows.length,
+      mergedPrs: output?.mergedPrs ?? 0,
+      activeRepos: output?.activeRepos ?? 0,
+      contributions: output?.contributions ?? 0,
+    }),
+  }
+}
+
 export async function getProfileForViewer(
   handle: string,
   viewerHandle: string | null,

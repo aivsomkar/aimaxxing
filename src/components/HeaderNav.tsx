@@ -13,9 +13,11 @@ const linkClass = 'inline-flex min-h-11 items-center px-1 hover:text-foreground 
 export function HeaderNav({
   viewer,
   onSignOut,
+  pending = false,
 }: {
   viewer: HeaderViewer | null
   onSignOut?: FormAction
+  pending?: boolean
 }) {
   return (
     <nav aria-label="Primary" className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-x-5 gap-y-2 px-6 py-2 text-sm">
@@ -25,7 +27,9 @@ export function HeaderNav({
       <div className="flex flex-wrap items-center justify-end gap-x-4 text-muted-foreground sm:gap-x-6">
         <Link href="/" className={linkClass}>Leaderboard</Link>
         <Link href="/methodology" className={linkClass}>Methodology</Link>
-        {viewer ? (
+        {pending ? (
+          <span aria-label="Loading account" className={`${linkClass} w-14 animate-pulse`} />
+        ) : viewer ? (
           <>
             <Link href={`/@${viewer.handle}`} className={linkClass}>@{viewer.handle}</Link>
             <Link href="/settings" className={linkClass}>Settings</Link>

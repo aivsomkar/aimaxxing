@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { DM_Sans, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { Header } from '@/components/Header'
+import { AuthProvider } from '@/components/AuthProvider'
 
 const sans = DM_Sans({ subsets: ['latin'], variable: '--font-dm-sans' })
 const mono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono' })
@@ -21,8 +22,10 @@ export default function RootLayout({
       <body
         className={`${sans.variable} ${mono.variable} font-sans bg-background text-foreground antialiased`}
       >
-        <Header />
-        {children}
+        <AuthProvider>
+          <Header />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   )
