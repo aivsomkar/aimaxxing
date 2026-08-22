@@ -326,6 +326,31 @@ describe('reproducibility', () => {
     expect(sum).toBeCloseTo(r.stackDepth, 10)
     expect(r.index).toBeCloseTo(r.stackDepth + r.outputTerm, 10)
   })
+
+  // Must pin additivity where a multiplicative form would DIFFER. With outputTerm 0,
+  // stackDepth*(1+term) equals stackDepth+term, so a zero-term case cannot catch it.
+  it('combines stack depth and output additively when the output term is nonzero', () => {
+    const r = computeIndex([t('a',100)], { mergedPrs: 20, contributions: 0 })
+    expect(r.outputTerm).toBeGreaterThan(0)
+    expect(r.index).toBeCloseTo(r.stackDepth + r.outputTerm, 10)
+    expect(r.index).not.toBeCloseTo(r.stackDepth * (1 + r.outputTerm), 5)
+  })
+})
+
+describe('negative input is clamped, not propagated', () => {
+  it('scores a negative session count as zero rather than NaN', () => {
+    expect(toolScore(t('a', -5))).toBe(0)
+  })
+  it('does not produce NaN from negative merged PRs', () => {
+    const o = outputTerm({ mergedPrs: -10, contributions: 0 })
+    expect(Number.isNaN(o)).toBe(false)
+    expect(o).toBe(0)
+  })
+  it('does not produce NaN from negative contributions', () => {
+    const o = outputTerm({ mergedPrs: 0, contributions: -100 })
+    expect(Number.isNaN(o)).toBe(false)
+    expect(o).toBe(0)
+  })
 })
 ```
 
@@ -387,7 +412,7 @@ export function computeIndex(tools: ToolDepth[], output: Output): IndexBreakdown
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `pnpm vitest run tests/index-math.test.ts`
-Expected: PASS (11 tests)
+Expected: PASS (15 tests)
 
 - [ ] **Step 5: Commit**
 
