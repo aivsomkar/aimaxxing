@@ -56,7 +56,7 @@ Index = Σ √(D_t)  for every qualifying tool t   +   O
 
 | Term | Meaning | Source |
 | --- | --- | --- |
-| `D_t` | Depth in tool *t* — sessions and spend within that tool | reporter CLI |
+| `D_t` | Depth in tool *t* — **sessions** in that tool | reporter CLI |
 | `O` | Account-level output — merged PRs, active repos, commits (capped) | GitHub OAuth |
 
 ### Why a square root
@@ -78,6 +78,18 @@ Worked examples (sessions as the depth proxy):
 
 `log` was rejected as punishing depth too harshly; linear was rejected as eliminating the breadth
 incentive entirely.
+
+### Spend is deliberately excluded from the Index
+
+`D_t` is session count alone. Spend is displayed on every profile and drives its own board (The
+Burn), but it does **not** enter the Index.
+
+Two reasons. First, blending sessions and dollars requires an arbitrary weight, which contradicts
+the reproducibility requirement below — the moment the formula contains a tunable constant nobody
+can justify, the ranking becomes an opinion. Second and more important: **if spend raised the
+Index, rank would be purchasable.** A well-funded developer could buy their way up simply by
+running more expensive models. Keeping the Index session- and output-based makes it unbuyable,
+which is the same principle as sponsors never affecting placement (§9).
 
 ### Qualifying floor
 
