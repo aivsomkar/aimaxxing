@@ -1,9 +1,10 @@
-# Stack Arena — Design Spec
+# AI Maxxing — Design Spec
 
-**Product:** Stack Arena
-**Domain:** stackarena.lol (meme redirect: aimaxxing.lol)
+**Product:** AI Maxxing
+**Domain:** aimaxxing.lol  (aimaxxing.com and .dev are taken)
+**Repo:** github.com/aivsomkar/aimaxxing
 **Date:** 2026-08-22
-**Status:** Design approved, pending spec review
+**Status:** Design approved. All open questions resolved.
 
 ---
 
@@ -22,14 +23,14 @@ someone was already doing is the input.
 ### Why this is not a directory
 
 Every adjacent product we surveyed (OpenAlternative, best-of-Agent-Harnesses, botdirectory.ai,
-AlternativeTo) ranks *tools* using public metadata anyone can scrape. Stack Arena ranks *people*
+AlternativeTo) ranks *tools* using public metadata anyone can scrape. AI Maxxing ranks *people*
 using private telemetry they choose to publish. The data cannot be scraped, cannot be replicated
 by a competitor, and grows only through participation. That is the moat.
 
 ### Why it is commercially interesting
 
 Because breadth is a ranking factor, adding a new tool to your stack raises your rank. This makes
-Stack Arena the only place that can tell a sponsor *"400 developers installed your CLI this week
+AI Maxxing the only place that can tell a sponsor *"400 developers installed your CLI this week
 to climb the board"* — measured installs, not impressions. The advertising product falls out of
 the ranking design rather than being bolted onto it.
 
@@ -101,7 +102,7 @@ each yields approximately nothing.
 
 `O` is **additive and capped**, never multiplicative. A developer who works entirely in private
 repositories must not be zeroed out. GitHub's contribution API returns private contribution
-*counts* without exposing repository names or content; Stack Arena uses those counts so that
+*counts* without exposing repository names or content; AI Maxxing uses those counts so that
 professionals shipping in private are not systematically under-ranked.
 
 **Known limitation:** pull requests cannot be attributed to a specific CLI — nothing in any tool's
@@ -173,7 +174,7 @@ Directly beneath the counter, the collective total breaks down live:
 - **By tool** — Claude Code vs OpenCode vs Codex CLI vs Cursor
 - **By token type** — input / output / cache read / cache write
 
-The by-model split is the most commercially valuable artifact Stack Arena produces. **Live market
+The by-model split is the most commercially valuable artifact AI Maxxing produces. **Live market
 share of AI coding spend, measured in actual dollars, does not exist anywhere else** — not from the
 labs, not from the gateways, not from analysts. It is the number journalists cite, and it is the
 basis of the monthly report described in §9.
@@ -202,7 +203,7 @@ retention curve.
 ## 5. The reporter
 
 ```
-npx stackarena link
+npx aimaxxing link
 
   scanning...
   Claude Code    412 sessions   $891.40
@@ -218,6 +219,12 @@ usage log and is self-report only in v1.
 
 De-risking note: the npm package `ccusage` already parses Claude Code's JSONL usage format, so
 this parsing is proven rather than speculative.
+
+### Consent flow
+
+The reporter scans locally and prints what it found **before** any network call. Transmission
+requires an explicit yes; public listing requires a second, separate opt-in. Both are revocable —
+`npx aimaxxing unlink` removes the account's data. Nothing is posted by default, ever.
 
 ### Privacy contract
 
@@ -266,7 +273,7 @@ history and rank-delta arrows.
 - **Web:** Next.js (App Router) + Tailwind, deployed on Vercel
 - **DB:** Postgres via Drizzle
 - **Auth:** GitHub OAuth via Auth.js — identity and the output term come from the same token
-- **CLI:** small Node package published to npm as `stackarena`
+- **CLI:** small Node package published to npm as `aimaxxing`
 - **Share cards:** Next.js `ImageResponse` at `/@handle/card`
 - **Ticker:** polling, no websockets in v1
 
@@ -291,12 +298,12 @@ arena, and hand-invoicing the first three sponsors costs less than building chec
 
 ### Neutrality regarding OpenMausBot
 
-Stack Arena is a neutral arena. OpenMausBot receives no ranking advantage, no default placement,
+AI Maxxing is a neutral arena. OpenMausBot receives no ranking advantage, no default placement,
 and no featured position it did not earn. This is a commercial requirement, not only an ethical
 one: a board engineered to favour one harness cannot sell sponsorship to any competing harness,
 which reduces the addressable advertiser pool to one.
 
-The accepted consequence is that Stack Arena may publish data unflattering to OpenMausBot. That is
+The accepted consequence is that AI Maxxing may publish data unflattering to OpenMausBot. That is
 treated as product feedback.
 
 ---
@@ -357,10 +364,15 @@ Radical transparency and the product-as-marketing in a single artifact.
 
 1. ~~Homepage default~~ — **resolved: The Burn is the homepage default**, led by the
    Collective Burn counter (§4.1), with rankings below and the Index one click away.
-2. Does manual self-reported entry exist at launch at all, or only after the reporter proves out?
-   *Recommendation: include it — it lets Cursor users participate, and the badge keeps it honest.*
-3. Public leaderboard opt-in or opt-out at link time?
-   *Recommendation: explicit opt-in. A privacy accident at launch is unrecoverable.*
+2. ~~Manual self-report at launch?~~ — **resolved: yes.** Manual entry ships at launch carrying the
+   self-reported badge. It lets Cursor users (no parseable local log) participate on day one, and
+   the badge keeps the board honest. Self-reported entries sort below verified entries at equal
+   value and are excluded from the by-model breakdown in §4.2, which must stay trustworthy.
+3. ~~Opt-in or opt-out for the public board?~~ — **resolved: explicit opt-in.** `npx aimaxxing link`
+   scans and shows totals locally first, then asks before anything is transmitted. Nothing is
+   posted by default, and appearing on a public board is a second, separate consent. A privacy
+   accident at launch is unrecoverable, and the aggregates-only contract in §5 is worthless if
+   consent is assumed.
 
 ---
 
