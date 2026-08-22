@@ -1,0 +1,5 @@
+{"timestamp":"2026-08-21T12:00:00Z","type":"session_meta","payload":{"id":"codex-session-1","model":"gpt-5","cwd":"/FORBIDDEN_CODEX_PATH","git":{"branch":"FORBIDDEN_CODEX_BRANCH"}}}
+{"timestamp":"2026-08-21T12:01:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"output_tokens":30,"cached_input_tokens":20,"cache_write_input_tokens":5}},"content":"FORBIDDEN_CODEX_CONTENT"}}
+{"timestamp":"2026-08-21T12:02:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":150,"output_tokens":50,"cached_input_tokens":30,"cache_write_input_tokens":7}},"tool_output":"FORBIDDEN_TOOL_OUTPUT"}}
+{"timestamp":"2026-08-21T12:03:00Z","type":"turn_context","payload":{"model":"gpt-5.1","cwd":"FORBIDDEN_CHANGED_PATH"}}
+{"timestamp":"2026-08-21T12:04:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":120,"output_tokens":40,"cached_input_tokens":25,"cache_write_input_tokens":6}},"reasoning":"FORBIDDEN_REASONING"}}

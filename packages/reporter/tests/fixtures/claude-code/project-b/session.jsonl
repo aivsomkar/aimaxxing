@@ -1,0 +1,1 @@
+{"type":"assistant","sessionId":"claude-session-2","requestId":"request-3","timestamp":"2026-08-22T01:00:00+00:00","gitBranch":"FORBIDDEN_BRANCH_SENTINEL","message":{"id":"message-3","model":"claude-sonnet-4","content":"FORBIDDEN_ASSISTANT_SENTINEL","usage":{"input_tokens":40,"output_tokens":30,"cache_read_input_tokens":0,"cache_creation_input_tokens":4}}}

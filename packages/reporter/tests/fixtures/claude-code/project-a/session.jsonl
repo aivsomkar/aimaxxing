@@ -1,0 +1,5 @@
+{"type":"assistant","sessionId":"claude-session-1","requestId":"request-1","timestamp":"2026-08-21T10:00:00Z","cwd":"/SECRET_REPOSITORY_PATH","message":{"id":"message-1","model":"claude-opus-4-1","content":[{"type":"text","text":"FORBIDDEN_PROMPT_SENTINEL"}],"usage":{"input_tokens":100,"output_tokens":50,"cache_read_input_tokens":25,"cache_creation_input_tokens":10}}}
+{"type":"assistant","sessionId":"claude-session-1","requestId":"request-1","timestamp":"2026-08-21T10:00:00Z","message":{"id":"message-1","model":"claude-opus-4-1","content":"FORBIDDEN_DUPLICATE_CONTENT","usage":{"input_tokens":100,"output_tokens":50,"cache_read_input_tokens":25,"cache_creation_input_tokens":10}}}
+{"type":"assistant","sessionId":"claude-session-1","requestId":"request-2","timestamp":"2026-08-21T10:05:00Z","message":{"id":"message-2","model":"claude-opus-4-1","usage":{"input_tokens":20,"output_tokens":15,"cache_read_input_tokens":5,"cache_creation_input_tokens":2}}}
+not-json-FORBIDDEN_RAW_SENTINEL
+{"type":"user","sessionId":"claude-session-1","timestamp":"2026-08-21T10:06:00Z","message":{"content":"FORBIDDEN_USER_SENTINEL"}}
