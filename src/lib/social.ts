@@ -3,6 +3,11 @@ export type XHandleValidation =
   | { ok: false; error: string }
 
 const X_HANDLE = /^[A-Za-z0-9_]{1,15}$/
+const X_APP_ROUTES = new Set([
+  'about', 'compose', 'download', 'explore', 'hashtag', 'home', 'i', 'intent',
+  'login', 'logout', 'messages', 'notifications', 'privacy', 'search', 'settings',
+  'share', 'signup', 'tos',
+])
 
 export function normalizeXHandle(input: string): string | null {
   const raw = (input ?? '').trim()
@@ -17,6 +22,7 @@ export function normalizeXHandle(input: string): string | null {
       const parts = url.pathname.split('/').filter(Boolean)
       if (parts.length !== 1) return null
       username = parts[0]
+      if (X_APP_ROUTES.has(username.toLowerCase())) return null
     } catch {
       return null
     }

@@ -15,6 +15,13 @@ describe('normalizeXHandle', () => {
     ('rejects %s', (input) => {
       expect(normalizeXHandle(input)).toBeNull()
     })
+
+  it.each([
+    'https://x.com/search?q=codex',
+    'https://twitter.com/settings',
+  ])('rejects the non-profile X route %s', (input) => {
+    expect(normalizeXHandle(input)).toBeNull()
+  })
 })
 
 describe('validateXHandle', () => {

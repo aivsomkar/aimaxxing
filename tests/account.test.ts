@@ -76,11 +76,12 @@ describe('setXHandleForUser', () => {
 
   it('rejects malformed handles without changing the user', async () => {
     const user = await makeUser()
+    await setXHandleForUser(db, user.id, '@already_public')
     await expect(setXHandleForUser(db, user.id, 'not-valid!'))
       .rejects.toThrow('invalid X handle')
     const [row] = await db.select().from(schema.users).where(eq(schema.users.id, user.id))
-    expect(row.xHandle).toBeNull()
-    expect(row.tagOptIn).toBe(false)
+    expect(row.xHandle).toBe('@already_public')
+    expect(row.tagOptIn).toBe(true)
   })
 })
 
