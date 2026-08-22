@@ -1427,7 +1427,18 @@ export async function getEntrants(window: Window, today = new Date()): Promise<E
 }
 
 export async function getProfile(handle: string) {
-  const [u] = await db.select().from(users).where(eq(users.handle, handle))
+  // Narrow projection on purpose. The full users row carries xHandle, instagramHandle and
+  // tagOptIn, which are gated by tagOptIn — a different consent flag from publicOptIn.
+  // Selecting them here would put PII on a shape the public profile page renders.
+  const [u] = await db
+    .select({
+      id: users.id,
+      handle: users.handle,
+      avatarUrl: users.avatarUrl,
+      publicOptIn: users.publicOptIn,
+    })
+    .from(users)
+    .where(eq(users.handle, handle))
   if (!u) return null
   const rows = await db.select().from(toolDays).where(eq(toolDays.userId, u.id))
   const [s] = await db.select().from(githubStats).where(eq(githubStats.userId, u.id))
