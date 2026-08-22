@@ -8,13 +8,9 @@ import { collectiveTotals, shareByModel } from '@/lib/collective'
 import { rankBoard } from '@/lib/boards'
 import { db } from '@/db/client'
 import { users } from '@/db/schema'
+import { formatUsd } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
-
-// Every dollar figure on the page routes through this so a top burner's
-// $1,000+ row doesn't disagree in style with the hero counter above it.
-const formatUsd = (v: number) =>
-  v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export default async function Home() {
   const rows = await getCollectiveRows('all')

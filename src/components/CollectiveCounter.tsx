@@ -1,13 +1,8 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { formatUsd } from '@/lib/format'
 
 type Totals = { costUsd: number; tokensTotal: number; last24hCostUsd: number; developers: number }
-
-// Every dollar figure on the page goes through this so two amounts a few
-// inches apart never disagree on thousands separators / decimal places.
-function formatUsd(v: number): string {
-  return v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
 
 // The counter must never look frozen: it interpolates dollars from the 24h
 // burn rate between 15s polls of /api/v1/collective, so the ticker keeps
