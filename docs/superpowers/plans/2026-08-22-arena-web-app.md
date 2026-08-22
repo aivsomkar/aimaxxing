@@ -1184,8 +1184,10 @@ git commit -m "feat: manual self-report, explicit public opt-in, and data deleti
 **Interfaces:**
 - Consumes: `db`, schema tables, `canAppearOnBoards`
 - Produces:
-  - `getCollectiveRows(window: 'day' | 'week' | 'month' | 'all'): Promise<BurnRow[]>`
-  - `getEntrants(window: 'day' | 'week' | 'month' | 'all'): Promise<Entrant[]>`
+  - `type Window = 'day' | 'week' | 'month' | 'all'`
+  - `cutoffFor(window: Window, today: Date): string | null`
+  - `getCollectiveRows(window: Window, today?: Date): Promise<BurnRow[]>`
+  - `getEntrants(window: Window, today?: Date): Promise<Entrant[]>`
   - `getProfile(handle: string): Promise<{ user; tools: ToolDepth[]; costUsd: number; mergedPrs: number; contributions: number; anyUnverified: boolean } | null>`
 
 - [ ] **Step 1: Write the failing integration test**
@@ -1558,7 +1560,7 @@ git commit -m "feat: homepage with animated collective counter, model split, and
 ### Task 10: Profiles and the public JSON
 
 **Files:**
-- Create: `src/app/@[handle]/page.tsx` (route path `/@[handle]`), `src/app/api/v1/profile/[handle]/route.ts`
+- Create: `src/app/[handle]/page.tsx`, `src/app/api/v1/profile/[handle]/route.ts`
 
 **Interfaces:**
 - Consumes: `getProfile` (Task 8), `computeIndex` (Task 2)
@@ -1588,7 +1590,10 @@ export async function GET(_: Request, { params }: { params: Promise<{ handle: st
 
 - [ ] **Step 2: Write the profile page**
 
-Create `src/app/[handle]/page.tsx` and match handles prefixed with `@` by linking to `/@handle`; Next.js treats `@` as a literal path character in a dynamic segment value.
+The route is `src/app/[handle]/page.tsx` — a single dynamic segment. Links point at `/@handle`,
+so the segment value arrives as `@omkar` and the leading `@` is stripped in code. Do **not** name
+the directory `@[handle]`: a leading `@` in a Next.js directory name declares a parallel route slot,
+which is a different feature and will not match.
 
 ```tsx
 import { notFound } from 'next/navigation'
@@ -1661,7 +1666,7 @@ git commit -m "feat: public profile with reproducible Index breakdown and raw JS
 ### Task 11: Share card
 
 **Files:**
-- Create: `src/app/@[handle]/opengraph-image.tsx`
+- Create: `src/app/[handle]/opengraph-image.tsx`
 
 **Interfaces:**
 - Consumes: `getProfile`, `computeIndex`
@@ -1707,7 +1712,7 @@ export default async function Image({ params }: { params: Promise<{ handle: stri
 
 - [ ] **Step 2: Verify**
 
-Run `pnpm dev`, visit `/@<handle>/opengraph-image`.
+Run `pnpm dev`, visit `/@<handle>/opengraph-image` (served by `src/app/[handle]/opengraph-image.tsx`).
 Expected: a dark 1200x630 PNG with the Index in orange.
 
 - [ ] **Step 3: Commit**
@@ -1841,6 +1846,18 @@ git commit -m "feat: methodology, sponsor page, and non-placement sponsor slot"
 ```
 
 ---
+
+## Known gaps against the spec
+
+Two items listed under spec section 10 are **not** in this plan, deliberately:
+
+- **Milestones** ($10k / $100k / $1M crossings firing a public event) — needs an event table and a
+  notifier. Deferred to Plan 3; nothing crosses a milestone in week one.
+- **Rank deltas** (up/down arrows against the previous period) — needs the `index_snapshots` table
+  from spec section 7, which this plan omits because a delta is undefined until there is history.
+  Add the table and a nightly snapshot job alongside the `collective_days` rollup in Plan 2.
+
+Both are real v1 features in the spec. They are sequenced after launch rather than dropped.
 
 ## Deferred to Plan 2 (Reporter CLI)
 
