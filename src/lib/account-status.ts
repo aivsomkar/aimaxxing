@@ -87,7 +87,9 @@ export async function getAccountStatus(
     revokedAt: reporter.revokedAt,
     usageCount: verifiedCounts.get(reporter.id) ?? 0,
   })).sort((a: ReporterSummary, b: ReporterSummary) => (
-    a.linkedAt.getTime() - b.linkedAt.getTime() || a.id.localeCompare(b.id)
+    Number(Boolean(a.revokedAt)) - Number(Boolean(b.revokedAt))
+    || b.linkedAt.getTime() - a.linkedAt.getTime()
+    || a.id.localeCompare(b.id)
   ))
   const usageCount = Number(manualUsageRows[0]?.value ?? 0) + verifiedUsageRows.length
   const connectedReporterCount = reporterSummaries.filter((reporter) => !reporter.revokedAt).length

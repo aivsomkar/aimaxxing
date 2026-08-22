@@ -8,6 +8,12 @@ const RATE_LIMIT = 12
 const requestCounts = new Map<string, { count: number; resetsAt: number }>()
 
 function rateLimited(reporterId: string, now: number): boolean {
+  if (requestCounts.size > 10_000) {
+    for (const [key, value] of requestCounts) {
+      if (value.resetsAt <= now) requestCounts.delete(key)
+    }
+    if (requestCounts.size > 10_000) requestCounts.delete(requestCounts.keys().next().value!)
+  }
   const current = requestCounts.get(reporterId)
   if (!current || current.resetsAt <= now) {
     requestCounts.set(reporterId, { count: 1, resetsAt: now + RATE_WINDOW_MS })

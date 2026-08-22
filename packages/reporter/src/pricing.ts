@@ -36,7 +36,12 @@ export function estimateCost(input: EstimateInput): {
   for (const value of [input.tokensIn, input.tokensOut, input.cacheRead, input.cacheWrite]) {
     if (!Number.isSafeInteger(value) || value < 0) throw new Error('invalid token count')
   }
-  const rates = models[input.model]
+  const inferredModel = input.model.startsWith('claude-')
+    ? `anthropic/${input.model}`
+    : input.model.startsWith('gpt-')
+      ? `openai/${input.model}`
+      : input.model
+  const rates = models[input.model] ?? models[inferredModel]
   if (!rates) return { costUsd: 0, warning: 'unknown_price' }
   const cost = (
     input.tokensIn * rates.input

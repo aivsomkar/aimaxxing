@@ -14,6 +14,11 @@ describe('estimateCost', () => {
     expect(estimateCost(usage)).toEqual({ costUsd: 41.75, warning: null })
   })
 
+  it('recognizes the unprefixed model IDs emitted by Claude Code and Codex CLI', () => {
+    expect(estimateCost({ ...usage, model: 'gpt-5' }).warning).toBeNull()
+    expect(estimateCost({ ...usage, model: 'claude-opus-4-1' }).warning).toBeNull()
+  })
+
   it('uses a trusted explicit source cost before model estimation', () => {
     expect(estimateCost({ ...usage, explicitCost: 7.123456 })).toEqual({
       costUsd: 7.1235, warning: null,

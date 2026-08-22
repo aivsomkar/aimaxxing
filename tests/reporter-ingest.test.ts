@@ -38,6 +38,17 @@ function signedReport(
 }
 
 describe('reporter snapshot ingest', () => {
+  it('rejects malformed reporter IDs before issuing a database UUID query', async () => {
+    await expect(applyReporterSnapshot(database, {
+      reporterId: 'not-a-uuid',
+      submissionId: 'malformed-id',
+      issuedAt: '2026-08-23T10:00:00.000Z',
+      pricingVersion: '2026-08-23',
+      rows: [],
+      signature: 'invalid',
+    }, new Date('2026-08-23T10:00:00Z'))).rejects.toMatchObject({ code: 'invalid_report' })
+  })
+
   it('replaces only the submitting reporter snapshot and rejects replay atomically', async () => {
     const [user] = await database.insert(schema.users).values({
       githubId: 'ingest-owner', handle: 'ingest-owner', publicOptIn: true,

@@ -4,6 +4,7 @@ import { reporterSubmissions, reporterToolDays, reporters } from '@/db/schema'
 import {
   canonicalReportBytes,
   ReporterVerificationError,
+  signedReporterReportSchema,
   verifySignedReport,
   type SignedReporterReport,
 } from './reporter-crypto'
@@ -46,19 +47,20 @@ export async function applyReporterSnapshot(
   value: unknown,
   now = new Date(),
 ): Promise<{ accepted: number; submissionId: string }> {
-  const candidate = value as Partial<SignedReporterReport> | null
-  if (!candidate || typeof candidate.reporterId !== 'string') {
+  const parsedCandidate = signedReporterReportSchema.safeParse(value)
+  if (!parsedCandidate.success) {
     throw new ReporterIngestError('invalid_report', 'Invalid reporter payload')
   }
+  const candidate = parsedCandidate.data
 
   return database.transaction(async (transaction) => {
     const [reporter] = await transaction.select().from(reporters).where(and(
-      eq(reporters.id, candidate.reporterId!),
+      eq(reporters.id, candidate.reporterId),
       isNull(reporters.revokedAt),
     ))
     if (!reporter) {
       const [known] = await transaction.select({ revokedAt: reporters.revokedAt })
-        .from(reporters).where(eq(reporters.id, candidate.reporterId!))
+        .from(reporters).where(eq(reporters.id, candidate.reporterId))
       throw new ReporterIngestError(
         known?.revokedAt ? 'revoked_reporter' : 'unknown_reporter',
         known?.revokedAt ? 'Reporter has been revoked' : 'Reporter is not linked',
@@ -67,7 +69,7 @@ export async function applyReporterSnapshot(
 
     let report: SignedReporterReport
     try {
-      report = verifySignedReport(value, reporter.publicKey, now)
+      report = verifySignedReport(candidate, reporter.publicKey, now)
     } catch (error) {
       mapVerificationError(error)
     }
