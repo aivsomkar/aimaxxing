@@ -22,6 +22,9 @@
 - **Sponsored credits are excluded from the collective total.**
 - **No sponsor may affect placement.** The sponsor slot is a static JSON-driven component only.
 - **Node 22+, pnpm.** Dependency versions are pinned to match linkdbots (see Task 1).
+- **All UI follows `DESIGN.md` at the repo root.** Binding rules from it: every number is
+  `font-mono` + `tabular-nums`; colours come from CSS tokens only (a raw `text-orange-600` is a
+  defect); `--live` is reserved for real-time indicators; light and dark must both work.
 
 ---
 
@@ -1084,7 +1087,7 @@ export default function Settings() {
           Your data is private until you turn this on. Signing in does not list you.
         </p>
         <form action={async () => { 'use server'; await setPublicOptIn(true) }}>
-          <button className="rounded bg-orange-600 px-4 py-2 text-white">List me publicly</button>
+          <button className="rounded-[--radius] bg-primary px-4 py-2 text-primary-foreground">List me publicly</button>
         </form>
         <form action={async () => { 'use server'; await setPublicOptIn(false) }}>
           <button className="rounded border px-4 py-2">Remove me from public boards</button>
@@ -1124,7 +1127,7 @@ export default function Report() {
         <input name="day" type="date" required className="border p-2 rounded" />
         <input name="sessions" type="number" min="0" placeholder="Sessions" required className="border p-2 rounded" />
         <input name="costUsd" type="number" min="0" step="0.01" placeholder="Cost in USD" required className="border p-2 rounded" />
-        <button className="rounded bg-orange-600 px-4 py-2 text-white">Submit</button>
+        <button className="rounded-[--radius] bg-primary px-4 py-2 text-primary-foreground">Submit</button>
       </form>
     </main>
   )
@@ -1373,6 +1376,136 @@ git commit -m "feat: query layer honouring public opt-in and aggregating per too
 
 ---
 
+### Task 8A: Design foundation
+
+Tasks 1-8 are logic and API only. This task establishes the visual system every later task builds on.
+Read `DESIGN.md` at the repo root first — it is the authority for this task.
+
+**Files:**
+- Modify: `src/app/globals.css`, `src/app/layout.tsx`
+- Create: `src/components/Header.tsx`, `src/components/LiveStatBar.tsx`
+
+**Interfaces:**
+- Consumes: `getCollectiveRows` (Task 8), `collectiveTotals` (Task 3)
+- Produces: `Header()`, `LiveStatBar({ developers, tokensTotal, costUsd })`
+
+- [ ] **Step 1: Write the token block into `src/app/globals.css`**
+
+Copy the `:root` and dark blocks from `DESIGN.md` verbatim. Dark is the default: define the full
+light palette on bare `:root`, then override in `:root:not([data-theme="light"])`. Map the tokens
+into Tailwind 4 via `@theme inline` so `bg-background`, `text-foreground`, `border-border`,
+`text-primary`, and `text-live` all resolve.
+
+```css
+@import "tailwindcss";
+
+:root { /* full light palette from DESIGN.md */ }
+:root:not([data-theme="light"]) { /* dark overrides from DESIGN.md */ }
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-live: var(--live);
+  --font-sans: var(--font-dm-sans);
+  --font-mono: var(--font-geist-mono);
+  --radius: 0.875rem;
+}
+
+body { background: var(--background); color: var(--foreground); }
+```
+
+- [ ] **Step 2: Load the fonts in `src/app/layout.tsx`**
+
+```tsx
+import { DM_Sans, Geist_Mono } from 'next/font/google'
+import './globals.css'
+import { Header } from '@/components/Header'
+
+const sans = DM_Sans({ subsets: ['latin'], variable: '--font-dm-sans' })
+const mono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono' })
+
+export const metadata = { title: 'AI Maxxing', description: 'Prove your stack.' }
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body className={`${sans.variable} ${mono.variable} font-sans bg-background text-foreground antialiased`}>
+        <Header />
+        {children}
+      </body>
+    </html>
+  )
+}
+```
+
+- [ ] **Step 3: Write `src/components/Header.tsx`**
+
+```tsx
+import Link from 'next/link'
+
+export function Header() {
+  return (
+    <header className="border-b border-border">
+      <nav className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4 text-sm">
+        <Link href="/" className="font-mono font-semibold">
+          aimaxxing<span className="text-primary">.lol</span>
+        </Link>
+        <div className="flex gap-6 text-muted-foreground">
+          <Link href="/" className="hover:text-foreground">Leaderboard</Link>
+          <Link href="/methodology" className="hover:text-foreground">Methodology</Link>
+          <Link href="/report" className="hover:text-foreground">Add me</Link>
+        </div>
+      </nav>
+    </header>
+  )
+}
+```
+
+- [ ] **Step 4: Write `src/components/LiveStatBar.tsx`**
+
+The live-proof strip that sits above the hero. `--live` is used here and nowhere else on the page.
+
+```tsx
+export function LiveStatBar({ developers, tokensTotal, costUsd }: {
+  developers: number; tokensTotal: number; costUsd: number
+}) {
+  return (
+    <div className="border-b border-border bg-muted/40">
+      <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-x-3 gap-y-1 px-6 py-2 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-live" />
+          <span className="font-mono tabular-nums text-foreground">{developers.toLocaleString()}</span> developers
+        </span>
+        <span aria-hidden>·</span>
+        <span><span className="font-mono tabular-nums text-foreground">{tokensTotal.toLocaleString()}</span> tokens</span>
+        <span aria-hidden>·</span>
+        <span><span className="font-mono tabular-nums text-foreground">${costUsd.toLocaleString(undefined,{maximumFractionDigits:0})}</span> burned</span>
+      </div>
+    </div>
+  )
+}
+```
+
+- [ ] **Step 5: Verify both themes**
+
+Run `pnpm dev`. Expected: dark ground by default, ember accent on the wordmark suffix, green live dot,
+numbers in mono. Set `<html data-theme="light">` by hand and confirm the light palette is complete and
+legible — no unstyled or invisible text.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add -A
+git commit -m "feat: design tokens, fonts, header, and live stat bar"
+```
+
+---
+
 ### Task 9: The homepage — collective counter, breakdown, and boards
 
 **Files:**
@@ -1383,6 +1516,9 @@ git commit -m "feat: query layer honouring public opt-in and aggregating per too
 **Interfaces:**
 - Consumes: `getCollectiveRows`, `getEntrants` (Task 8), `collectiveTotals`, `shareByModel` (Task 3), `rankBoard` (Task 4)
 - Produces: `GET /api/v1/collective` returning `{ costUsd, tokensTotal, last24hCostUsd }` for the ticker to poll
+
+Follow `DESIGN.md`'s page architecture: `LiveStatBar` (Task 8A) sits above the counter, then the
+counter, then the model split, then the two live panels, then the ranked list. Use tokens only.
 
 - [ ] **Step 1: Write `src/components/CollectiveCounter.tsx`**
 
@@ -1416,7 +1552,7 @@ export function CollectiveCounter({ initial }: { initial: Totals }) {
       </div>
       <div className="mt-1 text-xs uppercase tracking-[0.3em] opacity-60">tokens burned</div>
 
-      <div className="mt-8 font-mono text-3xl sm:text-5xl text-orange-500 tabular-nums">
+      <div className="mt-8 font-mono text-3xl sm:text-5xl text-primary tabular-nums">
         ${(t.costUsd + drift).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
       </div>
       <div className="mt-3 text-sm opacity-70">
@@ -1537,7 +1673,7 @@ export function ModelSplit({ shares }: { shares: { model: string; costUsd: numbe
       <div className="flex h-3 overflow-hidden rounded">
         {shares.map((s, i) => (
           <div key={s.model} style={{ width: `${s.share * 100}%` }}
-               className={['bg-orange-500','bg-amber-400','bg-rose-400','bg-sky-400','bg-emerald-400'][i % 5]}
+               className={['bg-primary','bg-amber-400','bg-rose-400','bg-sky-400','bg-emerald-400'][i % 5]}
                title={`${s.model} — $${s.costUsd.toFixed(2)}`} />
         ))}
       </div>
@@ -1623,7 +1759,7 @@ export default async function Profile({ params }: { params: Promise<{ handle: st
     <main className="mx-auto max-w-2xl px-6 py-12">
       <header className="flex items-baseline justify-between">
         <h1 className="text-2xl font-bold">@{p.user.handle}</h1>
-        <div className="font-mono text-3xl text-orange-500">{b.index.toFixed(1)}</div>
+        <div className="font-mono text-3xl text-primary tabular-nums">{b.index.toFixed(1)}</div>
       </header>
 
       <table className="mt-8 w-full text-sm">
@@ -1703,11 +1839,11 @@ export default async function Image({ params }: { params: Promise<{ handle: stri
     (
       <div style={{
         width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', background: '#0a0a0a', color: '#fff',
+        alignItems: 'center', justifyContent: 'center', background: '#12100e', color: '#f7f5f1',
         fontFamily: 'monospace',
       }}>
         <div style={{ fontSize: 40, opacity: 0.6 }}>@{handle}</div>
-        <div style={{ fontSize: 160, color: '#f97316', lineHeight: 1 }}>{b.index.toFixed(1)}</div>
+        <div style={{ fontSize: 160, color: '#ff5c1a', lineHeight: 1 }}>{b.index.toFixed(1)}</div>
         <div style={{ fontSize: 32, opacity: 0.6, marginTop: 16 }}>
           {tools} tools · ${p ? p.costUsd.toFixed(0) : 0} burned
         </div>
@@ -1988,7 +2124,7 @@ import { normalizeSocial } from '@/lib/tags'
     <label className="flex items-center gap-2 text-sm">
       <input type="checkbox" name="tagOptIn" /> Tag me in posts
     </label>
-    <button className="rounded bg-orange-600 px-4 py-2 text-white w-fit">Save</button>
+    <button className="rounded-[--radius] bg-primary px-4 py-2 text-primary-foreground w-fit">Save</button>
   </form>
 </section>
 ```
