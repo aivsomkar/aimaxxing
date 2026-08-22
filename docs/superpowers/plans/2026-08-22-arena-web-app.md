@@ -1819,9 +1819,12 @@ import { getProfile } from '@/lib/queries'
 import { computeIndex } from '@/lib/index-math'
 
 export async function GET(_: Request, { params }: { params: Promise<{ handle: string }> }) {
-  const { handle } = await params
+  const raw = decodeURIComponent((await params).handle)
+  const handle = raw.startsWith('@') ? raw.slice(1) : raw
   const p = await getProfile(handle)
-  if (!p || !p.user.publicOptIn) return NextResponse.json({ error: 'not found' }, { status: 404 })
+  if (!p || !canAppearOnBoards({ publicOptIn: p.user.publicOptIn, hasData: p.tools.length > 0 })) {
+    return NextResponse.json({ error: 'not found' }, { status: 404 })
+  }
   const breakdown = computeIndex(p.tools, { mergedPrs: p.mergedPrs, contributions: p.contributions })
   return NextResponse.json({
     handle: p.user.handle,
@@ -1848,10 +1851,14 @@ import { computeIndex } from '@/lib/index-math'
 export const dynamic = 'force-dynamic'
 
 export default async function Profile({ params }: { params: Promise<{ handle: string }> }) {
-  const raw = (await params).handle
+  // Next delivers this percent-encoded: a request to /@omkar arrives as "%40omkar",
+  // so decode BEFORE stripping the '@' or every profile 404s.
+  const raw = decodeURIComponent((await params).handle)
   const handle = raw.startsWith('@') ? raw.slice(1) : raw
   const p = await getProfile(handle)
-  if (!p || !p.user.publicOptIn) notFound()
+  // One consent rule, one place. An opted-in user with no data 404s rather than
+  // rendering an empty profile.
+  if (!p || !canAppearOnBoards({ publicOptIn: p.user.publicOptIn, hasData: p.tools.length > 0 })) notFound()
 
   const b = computeIndex(p.tools, { mergedPrs: p.mergedPrs, contributions: p.contributions })
 
