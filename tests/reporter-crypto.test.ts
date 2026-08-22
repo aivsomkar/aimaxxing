@@ -1,5 +1,6 @@
 import { generateKeyPairSync, sign } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
+import fixture from '../packages/reporter/tests/fixtures/canonical-report.json' with { type: 'json' }
 import {
   canonicalReportBytes,
   ReporterVerificationError,
@@ -31,6 +32,11 @@ function signed(overrides: Partial<UnsignedReporterReport> = {}) {
 }
 
 describe('reporter signature verification', () => {
+  it('matches the canonical bytes shipped with the CLI test fixture', () => {
+    expect(canonicalReportBytes(fixture.report as UnsignedReporterReport).toString('utf8'))
+      .toBe(fixture.canonicalJson)
+  })
+
   it('uses a fixed canonical key order and verifies a valid Ed25519 report', () => {
     const first = canonicalReportBytes(report).toString('utf8')
     const reordered = canonicalReportBytes({

@@ -1,0 +1,22 @@
+{
+  "report": {
+    "reporterId": "b10a30c0-1eb4-4f5b-87ae-12bd3a7848f3",
+    "submissionId": "submission-fixture-1",
+    "issuedAt": "2026-08-23T10:00:00.000Z",
+    "pricingVersion": "2026-08-23",
+    "rows": [
+      {
+        "tool": "codex-cli",
+        "model": "gpt-5.2",
+        "day": "2026-08-23",
+        "sessions": 3,
+        "tokensIn": 100,
+        "tokensOut": 40,
+        "cacheRead": 20,
+        "cacheWrite": 10,
+        "costUsd": 1.2345
+      }
+    ]
+  },
+  "canonicalJson": "{\"reporterId\":\"b10a30c0-1eb4-4f5b-87ae-12bd3a7848f3\",\"submissionId\":\"submission-fixture-1\",\"issuedAt\":\"2026-08-23T10:00:00.000Z\",\"pricingVersion\":\"2026-08-23\",\"rows\":[{\"tool\":\"codex-cli\",\"model\":\"gpt-5.2\",\"day\":\"2026-08-23\",\"sessions\":3,\"tokensIn\":100,\"tokensOut\":40,\"cacheRead\":20,\"cacheWrite\":10,\"costUsd\":1.2345}]}"
+}
