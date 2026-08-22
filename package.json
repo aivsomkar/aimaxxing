@@ -13,6 +13,7 @@
     "db:migrate": "tsx src/db/migrate.ts"
   },
   "dependencies": {
+    "@electric-sql/pglite": "^0.3.0",
     "drizzle-orm": "^0.44.0",
     "next": "^15.3.0",
     "next-auth": "5.0.0-beta.32",
@@ -22,7 +23,6 @@
     "zod": "^3.25.0"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.3.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.23.1",
