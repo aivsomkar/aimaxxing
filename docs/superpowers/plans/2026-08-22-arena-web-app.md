@@ -657,6 +657,16 @@ describe('rankBoard', () => {
     expect(r.map(x => x.handle)).toEqual(['poly', 'spec'])
     expect(r[0].value).toBeCloseTo(40, 5)
   })
+
+  // Must use the FULL index, not stackDepth. With mergedPrs 0 on every entrant the
+  // output term is 0 and the two are identical, so a nonzero-PR entrant is required
+  // for this to be able to fail at all.
+  it('index includes outputTerm from mergedPrs in the formula', () => {
+    const withPrs = e('withprs', { tools: [{ tool: 'a', sessions: 100, costUsd: 0 }], mergedPrs: 25 })
+    const [row] = rankBoard('index', [withPrs])
+    expect(row.value).toBeGreaterThan(10)          // stackDepth alone would be exactly 10
+    expect(row.value).toBeCloseTo(10 + 2 * Math.sqrt(25), 5)
+  })
 })
 ```
 
@@ -726,7 +736,7 @@ export function rankBoard(kind: BoardKind, entrants: Entrant[]): BoardEntry[] {
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `pnpm vitest run tests/boards.test.ts`
-Expected: PASS (5 tests)
+Expected: PASS (6 tests)
 
 - [ ] **Step 5: Commit**
 
