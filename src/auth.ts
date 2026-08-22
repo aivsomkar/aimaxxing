@@ -9,6 +9,7 @@ import { githubIdentityFromProfile } from './lib/github-portfolio'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [GitHub({ authorization: { params: { scope: 'read:user' } } })],
+  pages: { signIn: '/signin' },
   callbacks: {
     async signIn({ profile, account }) {
       const identity = githubIdentityFromProfile(profile ?? {})

@@ -1,9 +1,11 @@
 import { eq } from 'drizzle-orm'
+import Link from 'next/link'
+import { auth } from '@/auth'
 import { LiveStatBar } from '@/components/LiveStatBar'
 import { CollectiveCounter } from '@/components/CollectiveCounter'
 import { ModelSplit } from '@/components/ModelSplit'
 import { Board } from '@/components/Board'
-import { getCollectiveRows, getEntrants } from '@/lib/queries'
+import { getCollectiveRows, getEntrants, getProfileForViewer } from '@/lib/queries'
 import { collectiveTotals, shareByModel } from '@/lib/collective'
 import { rankBoard } from '@/lib/boards'
 import { db } from '@/db/client'
@@ -13,6 +15,11 @@ import { formatUsd } from '@/lib/format'
 export const dynamic = 'force-dynamic'
 
 export default async function Home() {
+  const session = await auth()
+  const viewerHandle = (session?.user as { handle?: string } | undefined)?.handle ?? null
+  const viewerProfile = viewerHandle
+    ? await getProfileForViewer(viewerHandle, viewerHandle)
+    : null
   const rows = await getCollectiveRows('all')
   const dayRows = await getCollectiveRows('day')
   const all = collectiveTotals(rows)
@@ -27,6 +34,14 @@ export default async function Home() {
       <LiveStatBar developers={devs.length} tokensTotal={all.tokensTotal} costUsd={all.costUsd} />
 
       <main className="mx-auto max-w-4xl px-6">
+        {viewerHandle && !viewerProfile?.isPublic && (
+          <div className="mt-6 flex flex-col justify-between gap-3 border border-primary/30 bg-primary/10 px-4 py-3 text-sm sm:flex-row sm:items-center">
+            <span>Your profile is private. Finish setup, preview your card, and publish when it is ready.</span>
+            <Link className="inline-flex min-h-11 shrink-0 items-center font-semibold text-primary underline underline-offset-4" href="/settings">
+              Open dashboard
+            </Link>
+          </div>
+        )}
         <CollectiveCounter
           initial={{
             costUsd: all.costUsd,
