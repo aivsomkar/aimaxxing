@@ -6,10 +6,18 @@
 // per suite — see the task-8 report for why the two styles were not unified.
 import { describe, it, expect, beforeEach } from 'vitest'
 import { db } from '../src/db/client'
-import { users, toolDays, githubStats } from '../src/db/schema'
+import {
+  users,
+  toolDays,
+  githubStats,
+  portfolioProjects,
+  portfolioImportSessions,
+} from '../src/db/schema'
 import { cutoffFor, getCollectiveRows, getEntrants, getProfile } from '../src/lib/queries'
 
 async function reset() {
+  await db.delete(portfolioImportSessions)
+  await db.delete(portfolioProjects)
   await db.delete(toolDays)
   await db.delete(githubStats)
   await db.delete(users)
@@ -265,5 +273,42 @@ describe('getProfile', () => {
     const profile = await getProfile('shipped')
     expect(profile!.mergedPrs).toBe(7)
     expect(profile!.contributions).toBe(200)
+  })
+
+  it('returns only public project fields in the selected portfolio order', async () => {
+    const [u] = await db.insert(users)
+      .values({ githubId: '6', handle: 'builder', publicOptIn: true }).returning()
+    await db.insert(toolDays).values({
+      userId: u.id, tool: 'codex', model: 'gpt-5', day: '2026-08-22',
+      sessions: 12, costUsd: '3.0000', source: 'reporter', verified: true,
+    })
+    await db.insert(portfolioProjects).values([
+      {
+        userId: u.id, source: 'manual', title: 'Second',
+        liveUrl: 'https://second.example', sortOrder: 2,
+      },
+      {
+        userId: u.id, source: 'github', externalId: 'repo-1', title: 'First',
+        description: 'The first shipped project', liveUrl: 'https://first.example',
+        repositoryUrl: 'https://github.com/builder/first', sortOrder: 1,
+      },
+    ])
+    await db.insert(portfolioImportSessions).values({
+      userId: u.id, source: 'github', stateHash: 'private-state',
+      candidates: [{ title: 'Not selected', liveUrl: 'https://hidden.example' }],
+      expiresAt: new Date('2026-08-23T00:00:00Z'),
+    })
+
+    const profile = await getProfile('builder')
+
+    expect(profile!.projects.map((project) => project.title)).toEqual(['First', 'Second'])
+    expect(Object.keys(profile!.projects[0]).sort()).toEqual([
+      'description', 'id', 'liveUrl', 'repositoryUrl', 'sortOrder', 'source', 'title',
+    ])
+    expect(profile!.projects[0]).toMatchObject({
+      source: 'github',
+      liveUrl: 'https://first.example',
+      repositoryUrl: 'https://github.com/builder/first',
+    })
   })
 })

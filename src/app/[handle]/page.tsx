@@ -9,6 +9,7 @@ import {
 } from '@/lib/index-math'
 import { canAppearOnBoards } from '@/lib/consent'
 import { formatUsd } from '@/lib/format'
+import { PortfolioGrid } from '@/components/PortfolioGrid'
 
 // NOTE for future editors: this directory MUST be named `[handle]`, not
 // `@[handle]`. A leading `@` in a Next.js route segment name declares a
@@ -142,6 +143,8 @@ export default async function Profile({ params }: { params: Promise<{ handle: st
           How this is calculated
         </a>
       </p>
+
+      <PortfolioGrid projects={p.projects} />
     </main>
   )
 }

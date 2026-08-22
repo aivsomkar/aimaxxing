@@ -1,6 +1,6 @@
-import { eq, gte } from 'drizzle-orm'
+import { asc, eq, gte } from 'drizzle-orm'
 import { db } from '@/db/client'
-import { users, toolDays, githubStats } from '@/db/schema'
+import { users, toolDays, githubStats, portfolioProjects } from '@/db/schema'
 import type { BurnRow } from './collective'
 import type { Entrant } from './boards'
 import type { ToolDepth } from './index-math'
@@ -109,6 +109,16 @@ type PublicUser = {
   publicOptIn: boolean
 }
 
+export type PublicPortfolioProject = {
+  id: number
+  source: string
+  title: string
+  description: string | null
+  liveUrl: string
+  repositoryUrl: string | null
+  sortOrder: number
+}
+
 export async function getProfile(handle: string): Promise<{
   user: PublicUser
   tools: ToolDepth[]
@@ -116,6 +126,7 @@ export async function getProfile(handle: string): Promise<{
   mergedPrs: number
   contributions: number
   anyUnverified: boolean
+  projects: PublicPortfolioProject[]
 } | null> {
   const [u] = await db
     .select({
@@ -136,6 +147,19 @@ export async function getProfile(handle: string): Promise<{
   if (!isPublic(u, rows.length > 0)) return null
 
   const [s] = await db.select().from(githubStats).where(eq(githubStats.userId, u.id))
+  const projects = await db
+    .select({
+      id: portfolioProjects.id,
+      source: portfolioProjects.source,
+      title: portfolioProjects.title,
+      description: portfolioProjects.description,
+      liveUrl: portfolioProjects.liveUrl,
+      repositoryUrl: portfolioProjects.repositoryUrl,
+      sortOrder: portfolioProjects.sortOrder,
+    })
+    .from(portfolioProjects)
+    .where(eq(portfolioProjects.userId, u.id))
+    .orderBy(asc(portfolioProjects.sortOrder), asc(portfolioProjects.id))
 
   const tools: ToolDepth[] = []
   let costUsd = 0
@@ -151,6 +175,6 @@ export async function getProfile(handle: string): Promise<{
   return {
     user: u, tools, costUsd,
     mergedPrs: s?.mergedPrs ?? 0, contributions: s?.contributions ?? 0,
-    anyUnverified,
+    anyUnverified, projects,
   }
 }
