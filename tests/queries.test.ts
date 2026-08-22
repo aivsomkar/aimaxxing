@@ -76,6 +76,33 @@ describe('getCollectiveRows', () => {
     const rows = await getCollectiveRows('day', new Date('2026-08-22T00:00:00Z'))
     expect(rows.map((r) => r.tool)).toEqual(['in-window'])
   })
+
+  // Per-purpose filtering (sponsored credits excluded from the headline
+  // number, unverified excluded from the by-model/by-tool split) lives
+  // downstream in collective.ts's spendable()/groupShare() — see task-8
+  // report. This query itself must hand every row through untouched,
+  // flags intact, so that composition keeps working. Guards against a
+  // future filter creeping into this function on either flag alone.
+  it('returns sponsored and unverified rows unfiltered, flags intact', async () => {
+    const [u] = await db.insert(users)
+      .values({ githubId: '4', handle: 'mix', publicOptIn: true }).returning()
+    await db.insert(toolDays).values([
+      { userId: u.id, tool: 'a', model: 'm', day: '2026-08-20',
+        sessions: 1, costUsd: '1.0000', source: 'reporter', verified: true, sponsored: false },
+      { userId: u.id, tool: 'b', model: 'm', day: '2026-08-20',
+        sessions: 1, costUsd: '1.0000', source: 'reporter', verified: true, sponsored: true },
+      { userId: u.id, tool: 'c', model: 'm', day: '2026-08-20',
+        sessions: 1, costUsd: '1.0000', source: 'manual', verified: false, sponsored: false },
+      { userId: u.id, tool: 'd', model: 'm', day: '2026-08-20',
+        sessions: 1, costUsd: '1.0000', source: 'manual', verified: false, sponsored: true },
+    ])
+    const rows = await getCollectiveRows('all')
+    expect(rows).toHaveLength(4)
+    expect(rows.some((r) => r.sponsored)).toBe(true)
+    expect(rows.some((r) => !r.sponsored)).toBe(true)
+    expect(rows.some((r) => r.verified)).toBe(true)
+    expect(rows.some((r) => !r.verified)).toBe(true)
+  })
 })
 
 describe('getEntrants', () => {
@@ -175,6 +202,25 @@ describe('getProfile', () => {
     await db.insert(users)
       .values({ githubId: '2', handle: 'empty', publicOptIn: true }).returning()
     expect(await getProfile('empty')).toBeNull()
+  })
+
+  // xHandle/instagramHandle/tagOptIn are gated by tagOptIn, a DIFFERENT
+  // consent flag from publicOptIn — the one this file's isPublic() checks.
+  // A user can opt into the leaderboard (publicOptIn) while declining
+  // tagging (tagOptIn). profile.user must not carry those fields (or the
+  // internal githubId) regardless, so a public-profile page can't reach
+  // for them even by accident.
+  it("does not expose tagOptIn-gated PII (xHandle, instagramHandle, tagOptIn) or githubId on profile.user", async () => {
+    const [u] = await db.insert(users).values({
+      githubId: 'gh-secret', handle: 'tagshy', publicOptIn: true,
+      xHandle: '@should-not-leak', instagramHandle: 'should-not-leak', tagOptIn: false,
+    }).returning()
+    await db.insert(toolDays).values({
+      userId: u.id, tool: 'a', model: 'm', day: '2026-08-20',
+      sessions: 1, costUsd: '1.0000', source: 'reporter', verified: true,
+    })
+    const profile = await getProfile('tagshy')
+    expect(Object.keys(profile!.user).sort()).toEqual(['avatarUrl', 'handle', 'id', 'publicOptIn'])
   })
 
   it('returns the profile for an opted-in user, aggregating tools per tool across models and days', async () => {

@@ -95,15 +95,37 @@ export async function getEntrants(window: Window, today = new Date()): Promise<E
     .map(({ userId, publicOptIn, ...entrant }) => entrant)
 }
 
+// Narrow public shape of a user row. Deliberately excludes xHandle,
+// instagramHandle, tagOptIn and githubId: the handle fields are gated by
+// tagOptIn — a DIFFERENT consent flag from publicOptIn, the one this file's
+// isPublic() checks — and githubId is an internal identifier with no reason
+// to reach a public caller. Narrowing the SQL projection (rather than
+// selecting the full row and omitting fields at the call site) means the PII
+// is absent from the returned type, not just unused by today's callers.
+type PublicUser = {
+  id: number
+  handle: string
+  avatarUrl: string | null
+  publicOptIn: boolean
+}
+
 export async function getProfile(handle: string): Promise<{
-  user: typeof users.$inferSelect
+  user: PublicUser
   tools: ToolDepth[]
   costUsd: number
   mergedPrs: number
   contributions: number
   anyUnverified: boolean
 } | null> {
-  const [u] = await db.select().from(users).where(eq(users.handle, handle))
+  const [u] = await db
+    .select({
+      id: users.id,
+      handle: users.handle,
+      avatarUrl: users.avatarUrl,
+      publicOptIn: users.publicOptIn,
+    })
+    .from(users)
+    .where(eq(users.handle, handle))
   if (!u) return null
 
   const rows = await db.select().from(toolDays).where(eq(toolDays.userId, u.id))
