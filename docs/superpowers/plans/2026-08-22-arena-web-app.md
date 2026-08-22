@@ -1151,7 +1151,11 @@ export async function deleteAllData() {
   const u = await currentUser()
   await db.delete(toolDays).where(eq(toolDays.userId, u.id))
   await db.delete(githubStats).where(eq(githubStats.userId, u.id))
-  await db.update(users).set({ publicOptIn: false }).where(eq(users.id, u.id))
+  // Social handles and the tagging opt-in are PII and must go too — otherwise a user
+  // who deleted everything can still be tagged by the weekly post (Task 13).
+  await db.update(users)
+    .set({ publicOptIn: false, xHandle: null, instagramHandle: null, tagOptIn: false })
+    .where(eq(users.id, u.id))
   revalidatePath('/')
 }
 ```
