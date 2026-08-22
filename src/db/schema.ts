@@ -1,8 +1,22 @@
-import { pgTable, text, integer, bigint, boolean, timestamp, date, numeric, uniqueIndex, serial } from 'drizzle-orm/pg-core'
+import {
+  pgTable,
+  text,
+  integer,
+  bigint,
+  boolean,
+  timestamp,
+  date,
+  numeric,
+  uniqueIndex,
+  serial,
+  jsonb,
+  uuid,
+} from 'drizzle-orm/pg-core'
 
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   githubId: text('github_id').notNull().unique(),
+  githubLogin: text('github_login'),
   handle: text('handle').notNull().unique(),
   avatarUrl: text('avatar_url'),
   publicOptIn: boolean('public_opt_in').notNull().default(false),
@@ -62,4 +76,32 @@ export const sponsors = pgTable('sponsors', {
   blurb: text('blurb').notNull(),
   startsOn: date('starts_on').notNull(),
   endsOn: date('ends_on').notNull(),
+})
+
+export const portfolioProjects = pgTable('portfolio_projects', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  source: text('source').notNull(),
+  externalId: text('external_id'),
+  title: text('title').notNull(),
+  description: text('description'),
+  liveUrl: text('live_url').notNull(),
+  repositoryUrl: text('repository_url'),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ({
+  userLiveUrl: uniqueIndex('portfolio_projects_user_live_url_uniq').on(t.userId, t.liveUrl),
+  userSourceExternal: uniqueIndex('portfolio_projects_user_source_external_uniq')
+    .on(t.userId, t.source, t.externalId),
+}))
+
+export const portfolioImportSessions = pgTable('portfolio_import_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  source: text('source').notNull(),
+  stateHash: text('state_hash'),
+  candidates: jsonb('candidates').notNull().default([]),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
 })
