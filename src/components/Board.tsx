@@ -19,7 +19,10 @@ export function Board({
             <a href={`/@${e.handle}`} className="flex-1 truncate hover:underline">
               @{e.handle}
             </a>
-            <span className="text-xs text-muted-foreground">{e.toolCount} tools</span>
+            <span className="text-xs text-muted-foreground">
+              <span className="font-mono tabular-nums">{e.toolCount}</span>{' '}
+              {e.toolCount === 1 ? 'tool' : 'tools'}
+            </span>
             <span title={e.verified ? 'Verified' : 'Self-reported'}>
               {e.verified ? '✅' : '🔶'}
             </span>

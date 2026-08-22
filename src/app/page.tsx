@@ -11,6 +11,11 @@ import { users } from '@/db/schema'
 
 export const dynamic = 'force-dynamic'
 
+// Every dollar figure on the page routes through this so a top burner's
+// $1,000+ row doesn't disagree in style with the hero counter above it.
+const formatUsd = (v: number) =>
+  v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
 export default async function Home() {
   const rows = await getCollectiveRows('all')
   const dayRows = await getCollectiveRows('day')
@@ -41,22 +46,22 @@ export default async function Home() {
           <Board
             title="🔥 The Burn"
             entries={rankBoard('burn', entrants)}
-            format={(v) => `$${v.toFixed(2)}`}
+            format={(v) => `$${formatUsd(v)}`}
           />
           <Board
             title="🎛 Breadth"
             entries={rankBoard('breadth', entrants)}
-            format={(v) => `${v} tools`}
+            format={(v) => `${v.toLocaleString()} ${v === 1 ? 'tool' : 'tools'}`}
           />
           <Board
             title="⚡ Efficiency"
             entries={rankBoard('efficiency', entrants)}
-            format={(v) => `$${v.toFixed(2)}/PR`}
+            format={(v) => `$${formatUsd(v)}/PR`}
           />
           <Board
             title="🏆 The Index"
             entries={rankBoard('index', entrants)}
-            format={(v) => v.toFixed(1)}
+            format={(v) => v.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
           />
         </div>
       </main>

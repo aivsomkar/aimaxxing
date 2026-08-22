@@ -3,6 +3,12 @@ import { useEffect, useRef, useState } from 'react'
 
 type Totals = { costUsd: number; tokensTotal: number; last24hCostUsd: number; developers: number }
 
+// Every dollar figure on the page goes through this so two amounts a few
+// inches apart never disagree on thousands separators / decimal places.
+function formatUsd(v: number): string {
+  return v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 // The counter must never look frozen: it interpolates dollars from the 24h
 // burn rate between 15s polls of /api/v1/collective, so the ticker keeps
 // moving even though the underlying data only actually changes on poll.
@@ -43,11 +49,7 @@ export function CollectiveCounter({ initial }: { initial: Totals }) {
       </div>
 
       <div className="mt-8 font-mono text-3xl tabular-nums text-primary sm:text-5xl">
-        $
-        {(t.costUsd + drift).toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}
+        ${formatUsd(t.costUsd + drift)}
       </div>
       <div className="mt-3 text-sm text-muted-foreground">
         by{' '}
@@ -56,7 +58,7 @@ export function CollectiveCounter({ initial }: { initial: Totals }) {
         </span>{' '}
         developers ·{' '}
         <span className="font-mono tabular-nums text-foreground">
-          ${t.last24hCostUsd.toFixed(2)}
+          ${formatUsd(t.last24hCostUsd)}
         </span>{' '}
         in the last 24h
       </div>
