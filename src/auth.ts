@@ -3,32 +3,25 @@ import GitHub from 'next-auth/providers/github'
 import { eq } from 'drizzle-orm'
 import { db } from './db/client'
 import { users } from './db/schema'
-import { deriveHandle } from './lib/handle'
+import { provisionGitHubAccount } from './lib/auth-account'
+import { fetchGitHubOutput, safeGitHubError, upsertGitHubOutput } from './lib/github-output'
 import { githubIdentityFromProfile } from './lib/github-portfolio'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  providers: [GitHub],
+  providers: [GitHub({ authorization: { params: { scope: 'read:user' } } })],
   callbacks: {
-    async signIn({ profile }) {
+    async signIn({ profile, account }) {
       const identity = githubIdentityFromProfile(profile ?? {})
       if (!identity) return false
-      const existing = await db.select().from(users).where(eq(users.githubId, identity.githubId))
-      if (existing.length > 0) {
-        await db.update(users).set({
-          githubLogin: identity.githubLogin,
-          avatarUrl: identity.avatarUrl,
-        }).where(eq(users.githubId, identity.githubId))
-        return true
+      const user = await provisionGitHubAccount(db, identity)
+      if (account?.access_token && identity.githubLogin) {
+        try {
+          const output = await fetchGitHubOutput(account.access_token, identity.githubLogin)
+          await upsertGitHubOutput(db, user.id, output)
+        } catch (error) {
+          console.error('github_output_sync_failed', safeGitHubError(error))
+        }
       }
-      const all = await db.select({ handle: users.handle }).from(users)
-      const handle = deriveHandle(identity.githubLogin ?? 'dev', new Set(all.map((u) => u.handle)))
-      // public_opt_in stays false: signing in is not consent to be listed.
-      await db.insert(users).values({
-        githubId: identity.githubId,
-        githubLogin: identity.githubLogin,
-        handle,
-        avatarUrl: identity.avatarUrl,
-      })
       return true
     },
     async session({ session, token }) {
