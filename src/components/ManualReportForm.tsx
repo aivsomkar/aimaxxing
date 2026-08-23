@@ -47,7 +47,7 @@ export function ManualReportForm({
           </div>
         </fieldset>
 
-        <Field state={state} name="costUsd" label="Cost in USD" type="number" min="0" step="0.01" placeholder="0.00" />
+        <Field state={state} name="costUsd" label="Reported cost in USD" type="number" min="0" step="0.01" placeholder="0.00" />
 
         <div aria-live="polite" role="status" className="min-h-6 text-sm">
           {state.message && (

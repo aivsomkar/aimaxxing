@@ -138,7 +138,7 @@ function printScan(scan: CompletedScan, output: (line: string) => void) {
     const tokens = row.tokensIn + row.tokensOut + row.cacheRead + row.cacheWrite
     output(`${row.day}  ${row.tool}  ${row.model}  ${row.sessions} session(s)  ${tokens} tokens  $${row.costUsd.toFixed(4)}`)
   }
-  output(`Total: ${total.sessions} session(s), ${total.tokens} tokens, $${total.cost.toFixed(4)} estimated spend.`)
+  output(`Total: ${total.sessions} session(s), ${total.tokens} tokens, $${total.cost.toFixed(4)} estimated API-equivalent value.`)
   for (const warning of scan.warnings) output(`Warning [${warning.adapter}/${warning.code}]: ${warning.message}`)
 }
 

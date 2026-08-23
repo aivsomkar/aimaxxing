@@ -12,7 +12,7 @@ export type Window = 'day' | 'week' | 'month' | 'all'
 // Callers pass the cutoff so query results stay deterministic in tests.
 export function cutoffFor(window: Window, today: Date): string | null {
   if (window === 'all') return null
-  const days = window === 'day' ? 1 : window === 'week' ? 7 : 30
+  const days = window === 'day' ? 0 : window === 'week' ? 6 : 29
   const d = new Date(today)
   d.setUTCDate(d.getUTCDate() - days)
   return d.toISOString().slice(0, 10)
@@ -60,7 +60,7 @@ export async function getCollectiveRows(window: Window, today = new Date()): Pro
 
 export type CollectiveSummary = {
   totals: CollectiveTotals
-  dayTotals: CollectiveTotals
+  todayTotals: CollectiveTotals
   modelShares: { model: string; costUsd: number; share: number }[]
   developers: number
 }
@@ -108,16 +108,16 @@ function addTotals(a: CollectiveTotals, b: CollectiveTotals): CollectiveTotals {
 }
 
 export async function getCollectiveSummary(today = new Date()): Promise<CollectiveSummary> {
-  const dayCutoff = cutoffFor('day', today)!
+  const todayUtc = cutoffFor('day', today)!
   const [
     allRows, reporterAllRows, dayRows, reporterDayRows,
     modelRows, reporterModelRows, developerRows, reporterDeveloperRows,
   ] = await Promise.all([
     db.select(aggregateSelection).from(toolDays),
     db.select(reporterAggregateSelection).from(reporterToolDays),
-    db.select(aggregateSelection).from(toolDays).where(gte(toolDays.day, dayCutoff)),
+    db.select(aggregateSelection).from(toolDays).where(gte(toolDays.day, todayUtc)),
     db.select(reporterAggregateSelection).from(reporterToolDays)
-      .where(gte(reporterToolDays.day, dayCutoff)),
+      .where(gte(reporterToolDays.day, todayUtc)),
     db.select({
       model: toolDays.model,
       costUsd: sql<string>`coalesce(sum(${toolDays.costUsd}), 0)`,
@@ -147,7 +147,7 @@ export async function getCollectiveSummary(today = new Date()): Promise<Collecti
   const verifiedSpend = modelCosts.reduce((total, row) => total + row.costUsd, 0)
   return {
     totals: addTotals(totalsFrom(allRows[0]), totalsFrom(reporterAllRows[0])),
-    dayTotals: addTotals(totalsFrom(dayRows[0]), totalsFrom(reporterDayRows[0])),
+    todayTotals: addTotals(totalsFrom(dayRows[0]), totalsFrom(reporterDayRows[0])),
     modelShares: verifiedSpend > 0
       ? modelCosts.map((row) => ({ ...row, share: row.costUsd / verifiedSpend }))
       : [],

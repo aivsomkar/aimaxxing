@@ -168,7 +168,7 @@ export default async function Profile({ params }: { params: Promise<{ handle: st
       </table>
 
       <p className="mt-8 text-xs text-muted-foreground">
-        Total spend ${formatUsd(p.costUsd)} — not included in the Index.{' '}
+        {card.spendLabel} {card.spend} — not included in the Index.{' '}
         {isPublic && (
           <><a className="underline" href={`/api/v1/profile/${p.user.handle}`}>Raw JSON</a>{' · '}</>
         )}

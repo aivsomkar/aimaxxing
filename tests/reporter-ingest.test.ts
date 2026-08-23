@@ -38,6 +38,85 @@ function signedReport(
 }
 
 describe('reporter snapshot ingest', () => {
+  it('rejects the legacy inclusive-cache pricing contract before it can overwrite corrected rows', async () => {
+    const [user] = await database.insert(schema.users).values({
+      githubId: 'legacy-contract-owner', handle: 'legacy-contract-owner',
+    }).returning()
+    const pair = keys()
+    const [reporter] = await database.insert(schema.reporters).values({
+      userId: user.id, machineIdHash: 'legacy-contract-machine', machineLabel: 'Legacy',
+      publicKey: pair.publicKey, publicKeyFingerprint: 'legacy-contract-fp',
+    }).returning()
+    const input: UnsignedReporterReport = {
+      reporterId: reporter.id, submissionId: 'legacy-contract-submission',
+      issuedAt: '2026-08-23T10:00:00.000Z', pricingVersion: '2026-08-23',
+      rows: [{
+        tool: 'codex-cli', model: 'gpt-5.6-sol', day: '2026-08-23', sessions: 1,
+        tokensIn: 1_000_000, tokensOut: 0, cacheRead: 900_000, cacheWrite: 0, costUsd: 5.45,
+      }],
+    }
+
+    await expect(applyReporterSnapshot(
+      database, signedReport(pair.privateKey, input), new Date('2026-08-23T10:00:00Z'),
+    )).rejects.toMatchObject({ code: 'unsupported_pricing_version' })
+    expect(await database.select().from(schema.reporterToolDays)
+      .where(eq(schema.reporterToolDays.reporterId, reporter.id))).toHaveLength(0)
+  })
+
+  it('recomputes API-equivalent cost on the server instead of trusting the client value', async () => {
+    const [user] = await database.insert(schema.users).values({
+      githubId: 'server-pricing-owner', handle: 'server-pricing-owner',
+    }).returning()
+    const pair = keys()
+    const [reporter] = await database.insert(schema.reporters).values({
+      userId: user.id, machineIdHash: 'server-pricing-machine', machineLabel: 'Current',
+      publicKey: pair.publicKey, publicKeyFingerprint: 'server-pricing-fp',
+    }).returning()
+    const input: UnsignedReporterReport = {
+      reporterId: reporter.id, submissionId: 'server-pricing-submission',
+      issuedAt: '2026-08-23T10:00:00.000Z', pricingVersion: '2026-08-23.1',
+      rows: [{
+        tool: 'codex-cli', model: 'gpt-5.6-sol', day: '2026-08-23', sessions: 1,
+        tokensIn: 1_000_000, tokensOut: 1_000_000,
+        cacheRead: 1_000_000, cacheWrite: 1_000_000, costUsd: 999,
+      }],
+    }
+
+    await expect(applyReporterSnapshot(
+      database, signedReport(pair.privateKey, input), new Date('2026-08-23T10:00:00Z'),
+    )).resolves.toMatchObject({ accepted: 1 })
+    const [stored] = await database.select().from(schema.reporterToolDays)
+      .where(eq(schema.reporterToolDays.reporterId, reporter.id))
+    expect(stored.costUsd).toBe('41.7500')
+  })
+
+  it('preserves the cost recorded by OpenCode for its own sessions', async () => {
+    const [user] = await database.insert(schema.users).values({
+      githubId: 'opencode-pricing-owner', handle: 'opencode-pricing-owner',
+    }).returning()
+    const pair = keys()
+    const [reporter] = await database.insert(schema.reporters).values({
+      userId: user.id, machineIdHash: 'opencode-pricing-machine', machineLabel: 'OpenCode',
+      publicKey: pair.publicKey, publicKeyFingerprint: 'opencode-pricing-fp',
+    }).returning()
+    const input: UnsignedReporterReport = {
+      reporterId: reporter.id, submissionId: 'opencode-pricing-submission',
+      issuedAt: '2026-08-23T10:00:00.000Z', pricingVersion: '2026-08-23.1',
+      rows: [{
+        tool: 'opencode', model: 'vendor/private-model', day: '2026-08-23', sessions: 1,
+        tokensIn: 1_000_000, tokensOut: 1_000_000,
+        cacheRead: 0, cacheWrite: 0, costUsd: 12.34,
+      }],
+    }
+
+    await expect(applyReporterSnapshot(
+      database, signedReport(pair.privateKey, input), new Date('2026-08-23T10:00:00Z'),
+    )).resolves.toMatchObject({ accepted: 1 })
+    const [stored] = await database.select().from(schema.reporterToolDays)
+      .where(eq(schema.reporterToolDays.reporterId, reporter.id))
+    expect(stored.costUsd).toBe('12.3400')
+  })
+
   it('rejects malformed reporter IDs before issuing a database UUID query', async () => {
     await expect(applyReporterSnapshot(database, {
       reporterId: 'not-a-uuid',
@@ -76,7 +155,7 @@ describe('reporter snapshot ingest', () => {
 
     const first: UnsignedReporterReport = {
       reporterId: reporterA.id, submissionId: 'ingest-submission-1',
-      issuedAt: '2026-08-23T10:00:00.000Z', pricingVersion: '2026-08-23',
+      issuedAt: '2026-08-23T10:00:00.000Z', pricingVersion: '2026-08-23.1',
       rows: [
         {
           tool: 'codex-cli', model: 'gpt-5.2', day: '2026-08-22', sessions: 2,
@@ -107,7 +186,7 @@ describe('reporter snapshot ingest', () => {
     const rowsA = await database.select().from(schema.reporterToolDays)
       .where(eq(schema.reporterToolDays.reporterId, reporterA.id))
     expect(rowsA).toHaveLength(1)
-    expect(rowsA[0]).toMatchObject({ tool: 'codex-cli', sessions: 9, costUsd: '4.5000' })
+    expect(rowsA[0]).toMatchObject({ tool: 'codex-cli', sessions: 9, costUsd: '0.0000' })
     expect(await database.select().from(schema.reporterToolDays)
       .where(eq(schema.reporterToolDays.reporterId, reporterB.id))).toHaveLength(1)
     expect(await database.select().from(schema.toolDays)
@@ -125,7 +204,7 @@ describe('reporter snapshot ingest', () => {
     }).returning()
     const input: UnsignedReporterReport = {
       reporterId: reporter.id, submissionId: 'revoked-submission',
-      issuedAt: '2026-08-23T10:00:00.000Z', pricingVersion: '2026-08-23',
+      issuedAt: '2026-08-23T10:00:00.000Z', pricingVersion: '2026-08-23.1',
       rows: [{
         tool: 'codex-cli', model: 'gpt-5.2', day: '2026-08-23', sessions: 1,
         tokensIn: 1, tokensOut: 1, cacheRead: 0, cacheWrite: 0, costUsd: 0.1,
@@ -150,7 +229,7 @@ describe('reporter snapshot ingest', () => {
     }).returning()
     const input: UnsignedReporterReport = {
       reporterId: reporter.id, submissionId: 'wrong-key-submission',
-      issuedAt: '2026-08-23T10:00:00.000Z', pricingVersion: '2026-08-23', rows: [],
+      issuedAt: '2026-08-23T10:00:00.000Z', pricingVersion: '2026-08-23.1', rows: [],
     }
     await expect(applyReporterSnapshot(
       database, signedReport(attacker.privateKey, input), new Date('2026-08-23T10:00:00Z'),

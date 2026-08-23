@@ -8,6 +8,7 @@ import {
   verifySignedReport,
   type SignedReporterReport,
 } from './reporter-crypto'
+import { estimateReporterCost, REPORTER_PRICING_VERSION } from './reporter-pricing'
 
 type Database = {
   select: (...args: any[]) => any
@@ -23,6 +24,7 @@ export type ReporterIngestCode =
   | 'revoked_reporter'
   | 'expired_report'
   | 'invalid_signature'
+  | 'unsupported_pricing_version'
   | 'replayed_submission'
 
 export class ReporterIngestError extends Error {
@@ -52,6 +54,12 @@ export async function applyReporterSnapshot(
     throw new ReporterIngestError('invalid_report', 'Invalid reporter payload')
   }
   const candidate = parsedCandidate.data
+  if (candidate.pricingVersion !== REPORTER_PRICING_VERSION) {
+    throw new ReporterIngestError(
+      'unsupported_pricing_version',
+      `Reporter pricing contract ${candidate.pricingVersion} is no longer supported`,
+    )
+  }
 
   return database.transaction(async (transaction) => {
     const [reporter] = await transaction.select().from(reporters).where(and(
@@ -89,11 +97,12 @@ export async function applyReporterSnapshot(
     }
 
     for (const row of report.rows) {
+      const costUsd = estimateReporterCost(row).toFixed(4)
       await transaction.insert(reporterToolDays).values({
         reporterId: reporter.id,
         userId: reporter.userId,
         ...row,
-        costUsd: row.costUsd.toFixed(4),
+        costUsd,
         createdAt: now,
       }).onConflictDoUpdate({
         target: [
@@ -108,7 +117,7 @@ export async function applyReporterSnapshot(
           tokensOut: row.tokensOut,
           cacheRead: row.cacheRead,
           cacheWrite: row.cacheWrite,
-          costUsd: row.costUsd.toFixed(4),
+          costUsd,
         },
       })
     }

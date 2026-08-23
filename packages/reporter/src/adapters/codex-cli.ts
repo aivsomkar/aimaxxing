@@ -86,18 +86,20 @@ export class CodexCliAdapter implements UsageAdapter {
 
   private snapshot(usage: Record<string, unknown>, day: string | null): TokenSnapshot | null {
     if (!day) return null
-    const tokensIn = counter(usage.input_tokens)
+    const inclusiveInput = counter(usage.input_tokens)
     const tokensOut = counter(usage.output_tokens)
     const cacheRead = counter(usage.cached_input_tokens)
     const cacheWrite = counter(usage.cache_write_input_tokens)
-    if (tokensIn === null || tokensOut === null || cacheRead === null || cacheWrite === null) return null
+    if (inclusiveInput === null || tokensOut === null || cacheRead === null || cacheWrite === null) return null
+    const tokensIn = inclusiveInput - cacheRead - cacheWrite
+    if (tokensIn < 0) return null
     return {
       day,
       tokensIn,
       tokensOut,
       cacheRead,
       cacheWrite,
-      total: tokensIn + tokensOut + cacheRead + cacheWrite,
+      total: inclusiveInput + tokensOut,
     }
   }
 }

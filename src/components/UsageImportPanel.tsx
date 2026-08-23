@@ -38,7 +38,7 @@ export function UsageImportPanel() {
 
       <p className="mt-4 text-xs leading-5 text-muted-foreground">
         Requires Node.js 22+. Prompts, responses, source code, file paths, and repository names stay local;
-        only daily aggregates for tools, models, sessions, tokens, and estimated cost are uploaded after approval.
+        only daily aggregates for tools, models, sessions, tokens, and estimated API-equivalent value are uploaded after approval.
       </p>
     </section>
   )

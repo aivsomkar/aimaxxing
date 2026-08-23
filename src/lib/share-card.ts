@@ -16,6 +16,7 @@ export type ShareCardData = {
   xHandle: string | null
   index: string
   spend: string
+  spendLabel: string
   tokens: string
   verificationLabel: string
   toolCount: number
@@ -48,6 +49,11 @@ export function buildShareCardData(profile: ProfileRecord): ShareCardData {
       : profile.anyUnverified
         ? 'SELF-REPORTED USAGE'
         : 'VERIFIED USAGE'
+  const spendLabel = profile.anyVerified && profile.anyUnverified
+    ? 'REPORTED + EST. VALUE'
+    : profile.anyUnverified
+      ? 'SELF-REPORTED SPEND'
+      : 'EST. API VALUE'
 
   return {
     handle: `@${profile.user.handle}`,
@@ -57,6 +63,7 @@ export function buildShareCardData(profile: ProfileRecord): ShareCardData {
       maximumFractionDigits: 1,
     }),
     spend: `$${formatUsd(profile.costUsd)}`,
+    spendLabel,
     tokens: compact(profile.tokenTotals.total),
     verificationLabel,
     toolCount,

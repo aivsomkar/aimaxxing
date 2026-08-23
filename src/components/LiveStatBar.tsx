@@ -29,7 +29,7 @@ export function LiveStatBar({
           <span className="font-mono tabular-nums text-foreground">
             ${costUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}
           </span>{' '}
-          burned
+          est. API value
         </span>
       </div>
     </div>

@@ -19,5 +19,7 @@ describe('MethodologyContent', () => {
     expect(html).toContain('Self-reported')
     expect(html).toContain('Sponsored credits')
     expect(html).toContain('prompts')
+    expect(html).toContain('API-equivalent estimate')
+    expect(html).toContain('not a subscription charge')
   })
 })

@@ -46,7 +46,7 @@ export const unsignedReporterReportSchema = z.object({
   reporterId: z.string().uuid(),
   submissionId: z.string().min(1).max(128).regex(/^[A-Za-z0-9._:-]+$/),
   issuedAt: z.string().datetime({ offset: true }),
-  pricingVersion: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  pricingVersion: z.string().regex(/^\d{4}-\d{2}-\d{2}(?:\.\d+)?$/),
   rows: z.array(reporterUsageRowSchema).max(MAX_ROWS),
 }).strict().superRefine(rejectDuplicateRows)
 
@@ -54,7 +54,7 @@ export const signedReporterReportSchema = z.object({
   reporterId: z.string().uuid(),
   submissionId: z.string().min(1).max(128).regex(/^[A-Za-z0-9._:-]+$/),
   issuedAt: z.string().datetime({ offset: true }),
-  pricingVersion: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  pricingVersion: z.string().regex(/^\d{4}-\d{2}-\d{2}(?:\.\d+)?$/),
   rows: z.array(reporterUsageRowSchema).max(MAX_ROWS),
   signature: z.string().min(1).max(256),
 }).strict().superRefine(rejectDuplicateRows)

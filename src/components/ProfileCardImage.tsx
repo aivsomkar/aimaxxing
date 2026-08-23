@@ -51,7 +51,7 @@ export function ProfileCardImage({ data }: { data: ShareCardData }) {
             {data.index}
           </span>
           <div style={{ display: 'flex', flexDirection: 'column', borderTop: '1px solid #ffffff24', paddingTop: 17 }}>
-            <span style={{ color: '#a8a09a', fontSize: 11, letterSpacing: 1.5 }}>ACCOUNT SPEND</span>
+            <span style={{ color: '#a8a09a', fontSize: 11, letterSpacing: 1.5 }}>{data.spendLabel}</span>
             <span style={{ marginTop: 4, fontSize: 22, fontWeight: 700 }}>{data.spend}</span>
           </div>
         </div>

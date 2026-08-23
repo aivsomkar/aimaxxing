@@ -35,10 +35,22 @@ describe('estimateCost', () => {
     expect(estimateCost({ ...usage, tokensIn: 123, tokensOut: 456, cacheRead: 0, cacheWrite: 0 }))
       .toEqual({ costUsd: 0.0143, warning: null })
   })
+
+  it.each([
+    ['claude-fable-5', 73.5],
+    ['claude-opus-5', 36.75],
+    ['claude-opus-4-8', 36.75],
+    ['claude-sonnet-5', 14.7],
+    ['claude-sonnet-4-6', 22.05],
+    ['claude-haiku-4-5-20251001', 7.35],
+    ['gpt-5.5', 41.75],
+  ])('prices current imported model %s instead of silently reporting $0', (model, costUsd) => {
+    expect(estimateCost({ ...usage, model })).toEqual({ costUsd, warning: null })
+  })
 })
 
 describe('PRICING_VERSION', () => {
-  it('is a non-empty date-based version', () => {
-    expect(PRICING_VERSION).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  it('identifies the cache-normalized pricing contract', () => {
+    expect(PRICING_VERSION).toBe('2026-08-23.1')
   })
 })

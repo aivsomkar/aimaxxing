@@ -21,7 +21,7 @@ export function ModelSplit({
   return (
     <section className="py-8">
       <h2 className="mb-3 text-sm uppercase tracking-widest text-muted-foreground">
-        Where the money went
+        Where the estimated API value went
       </h2>
       <div className="flex h-3 overflow-hidden rounded-full">
         {shares.map((s, i) => (
@@ -46,7 +46,7 @@ export function ModelSplit({
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-[11px] text-muted-foreground">Verified reports only.</p>
+      <p className="mt-2 text-[11px] text-muted-foreground">Verified reports · API-equivalent estimates.</p>
     </section>
   )
 }

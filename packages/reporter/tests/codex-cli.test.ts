@@ -13,11 +13,11 @@ describe('CodexCliAdapter', () => {
     expect(result.rows).toEqual([
       {
         tool: 'codex-cli', model: 'gpt-5.1', day: '2026-08-21', sessions: 1,
-        tokensIn: 150, tokensOut: 50, cacheRead: 30, cacheWrite: 7, costUsd: 0,
+        tokensIn: 113, tokensOut: 50, cacheRead: 30, cacheWrite: 7, costUsd: 0,
       },
       {
         tool: 'codex-cli', model: 'gpt-5-mini', day: '2026-08-22', sessions: 1,
-        tokensIn: 10, tokensOut: 5, cacheRead: 2, cacheWrite: 1, costUsd: 0,
+        tokensIn: 7, tokensOut: 5, cacheRead: 2, cacheWrite: 1, costUsd: 0,
       },
     ])
     expect(result.warnings).toEqual(expect.arrayContaining([

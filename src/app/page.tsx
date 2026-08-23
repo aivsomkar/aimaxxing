@@ -28,7 +28,7 @@ export default async function Home() {
           initial={{
             costUsd: summary.totals.costUsd,
             tokensTotal: summary.totals.tokensTotal,
-            last24hCostUsd: summary.dayTotals.costUsd,
+            todayCostUsd: summary.todayTotals.costUsd,
             developers: summary.developers,
           }}
         />
@@ -37,7 +37,7 @@ export default async function Home() {
 
         <div className="grid gap-10 py-12 sm:grid-cols-2">
           <Board
-            title="🔥 The Burn"
+            title="🔥 API Value"
             entries={rankBoard('burn', entrants)}
             format={(v) => `$${formatUsd(v)}`}
           />

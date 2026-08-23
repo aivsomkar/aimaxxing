@@ -1,34 +1,22 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { formatUsd } from '@/lib/format'
 
-type Totals = { costUsd: number; tokensTotal: number; last24hCostUsd: number; developers: number }
+type Totals = { costUsd: number; tokensTotal: number; todayCostUsd: number; developers: number }
 
-// The counter must never look frozen: it interpolates dollars from the 24h
-// burn rate between 15s polls of /api/v1/collective, so the ticker keeps
-// moving even though the underlying data only actually changes on poll.
 export function CollectiveCounter({ initial }: { initial: Totals }) {
   const [t, setT] = useState(initial)
-  const rate = useRef(initial.last24hCostUsd / 86400) // dollars per second
-  const [drift, setDrift] = useState(0)
 
   useEffect(() => {
     const poll = setInterval(async () => {
       try {
         const next: Totals = await fetch('/api/v1/collective').then((r) => r.json())
-        rate.current = next.last24hCostUsd / 86400
         setT(next)
-        setDrift(0)
       } catch {
-        // Transient fetch failure: keep ticking on the last known rate
-        // rather than freezing the display.
+        // Keep the last exact persisted value after a transient fetch failure.
       }
     }, 15000)
-    const tick = setInterval(() => setDrift((d) => d + rate.current * 0.1), 100)
-    return () => {
-      clearInterval(poll)
-      clearInterval(tick)
-    }
+    return () => clearInterval(poll)
   }, [])
 
   return (
@@ -44,7 +32,10 @@ export function CollectiveCounter({ initial }: { initial: Totals }) {
       </h1>
 
       <div className="mt-8 font-mono text-3xl tabular-nums text-primary sm:text-5xl" aria-live="off">
-        ${formatUsd(t.costUsd + drift)}
+        ${formatUsd(t.costUsd)}
+      </div>
+      <div className="mt-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+        estimated API-equivalent value
       </div>
       <div className="mt-3 text-sm text-muted-foreground">
         by{' '}
@@ -53,9 +44,9 @@ export function CollectiveCounter({ initial }: { initial: Totals }) {
         </span>{' '}
         developers ·{' '}
         <span className="font-mono tabular-nums text-foreground">
-          ${formatUsd(t.last24hCostUsd)}
+          ${formatUsd(t.todayCostUsd)}
         </span>{' '}
-        in the last 24h
+        today UTC
       </div>
     </section>
   )

@@ -50,6 +50,7 @@ describe('buildShareCardData', () => {
       xHandle: '@omkar_ai',
       index: '14.0',
       spend: '$125.50',
+      spendLabel: 'EST. API VALUE',
       verificationLabel: 'VERIFIED USAGE',
       tokens: '42.8M',
       tools: ['claude-code', 'codex-cli'],
@@ -73,6 +74,7 @@ describe('buildShareCardData', () => {
       toolLabel: '1 AI tool',
       projectLabel: '0 live projects',
       verificationLabel: 'SELF-REPORTED USAGE',
+      spendLabel: 'SELF-REPORTED SPEND',
     })
   })
 

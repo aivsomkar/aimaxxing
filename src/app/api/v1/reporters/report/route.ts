@@ -24,7 +24,7 @@ function rateLimited(reporterId: string, now: number): boolean {
 }
 
 function statusFor(error: ReporterIngestError): number {
-  if (error.code === 'invalid_report') return 400
+  if (error.code === 'invalid_report' || error.code === 'unsupported_pricing_version') return 400
   if (error.code === 'replayed_submission') return 409
   return 401
 }

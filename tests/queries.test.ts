@@ -50,16 +50,16 @@ describe('cutoffFor', () => {
     expect(cutoffFor('all', today)).toBeNull()
   })
 
-  it("returns yesterday for 'day'", () => {
-    expect(cutoffFor('day', today)).toBe('2026-01-09')
+  it("returns today for the UTC day window", () => {
+    expect(cutoffFor('day', today)).toBe('2026-01-10')
   })
 
-  it("returns 7 days back for 'week'", () => {
-    expect(cutoffFor('week', today)).toBe('2026-01-03')
+  it("returns six days back for a seven-calendar-day week window", () => {
+    expect(cutoffFor('week', today)).toBe('2026-01-04')
   })
 
-  it("returns 30 days back for 'month', crossing a month/year boundary", () => {
-    expect(cutoffFor('month', today)).toBe('2025-12-11')
+  it("returns 29 days back for a thirty-calendar-day month window", () => {
+    expect(cutoffFor('month', today)).toBe('2025-12-12')
   })
 })
 
@@ -107,7 +107,7 @@ describe('getCollectiveSummary', () => {
     const allRows = await getCollectiveRows('all', now)
     const dayRows = await getCollectiveRows('day', now)
     expect(summary.totals).toEqual(collectiveTotals(allRows))
-    expect(summary.dayTotals).toEqual(collectiveTotals(dayRows))
+    expect(summary.todayTotals).toEqual(collectiveTotals(dayRows))
     expect(summary.modelShares).toEqual(shareByModel(allRows))
     expect(summary.developers).toBe(1)
   })
@@ -146,7 +146,7 @@ describe('getCollectiveRows', () => {
     const [u] = await db.insert(users)
       .values({ githubId: '3', handle: 'windowed', publicOptIn: true }).returning()
     await db.insert(toolDays).values([
-      { userId: u.id, tool: 'in-window', model: 'm', day: '2026-08-21',
+      { userId: u.id, tool: 'in-window', model: 'm', day: '2026-08-22',
         sessions: 1, costUsd: '1.0000', source: 'reporter', verified: true },
       { userId: u.id, tool: 'out-of-window', model: 'm', day: '2026-08-01',
         sessions: 1, costUsd: '1.0000', source: 'reporter', verified: true },
@@ -233,7 +233,7 @@ describe('getEntrants', () => {
       userId: u.id, tool: 'claude-code', model: 'opus', day: '2026-08-01',
       sessions: 10, costUsd: '1.0000', source: 'reporter', verified: true,
     })
-    // 'day' window relative to 2026-08-22 only reaches back to 2026-08-21.
+    // The UTC-day window includes only 2026-08-22.
     expect(await getEntrants('day', new Date('2026-08-22T00:00:00Z'))).toHaveLength(0)
   })
 

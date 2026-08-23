@@ -26,11 +26,11 @@ export function MethodologyContent() {
         <h2 id="qualification-heading" className="mt-1 text-xl font-semibold text-foreground">Real use earns stack depth</h2>
         <p className="mt-3 max-w-[70ch]">
           A tool contributes to stack depth after at least {QUALIFY_SESSIONS} sessions
-          or ${QUALIFY_COST_USD} of reported spend. Qualifying tool depth is the square
+          or ${QUALIFY_COST_USD} of reported or estimated usage value. Qualifying tool depth is the square
           root of its sessions, rewarding breadth without letting repetition grow linearly.
         </p>
         <p className="mt-3 max-w-[70ch]">
-          Spend is displayed as part of the build record but never added directly to the
+          Usage value is displayed as part of the build record but never added directly to the
           Index. A larger budget cannot buy a larger score by itself.
         </p>
       </section>
@@ -45,7 +45,7 @@ export function MethodologyContent() {
         </p>
         <p className="mt-3 max-w-[70ch]">
           GitHub cannot reveal local Claude Code, Codex, or OpenCode consumption.
-          Those tool, model, token, and spend aggregates come from a manual report or
+          Those tool, model, token, and usage-value aggregates come from a manual report or
           the privacy-preserving local reporter.
         </p>
       </section>
@@ -58,13 +58,20 @@ export function MethodologyContent() {
           Verified rows are signed by a linked local reporter and accepted only after
           protocol validation. Mixed profiles disclose that both sources are present.
         </p>
+        <p className="mt-3 max-w-[70ch]">
+          For verified Codex and Claude rows, dollars are an API-equivalent estimate calculated from
+          mutually exclusive uncached input, output, cache-read, and cache-write buckets
+          using the versioned model rate card. The server recalculates the estimate before
+          storing it. OpenCode imports the cost recorded in its own session database. An API
+          estimate is not a subscription charge or a claim about the developer&apos;s bill.
+        </p>
       </section>
 
       <section aria-labelledby="privacy-heading">
         <Eyebrow>05 · PRIVACY</Eyebrow>
         <h2 id="privacy-heading" className="mt-1 text-xl font-semibold text-foreground">Only aggregates leave the machine</h2>
         <p className="mt-3 max-w-[70ch]">
-          The reporter sends daily counts for tools, models, sessions, tokens, and cost.
+          The reporter sends daily counts for tools, models, sessions, tokens, and estimated cost.
           It never sends prompts, responses, reasoning, code, commands, file paths,
           repository names, attachments, or raw local records.
         </p>

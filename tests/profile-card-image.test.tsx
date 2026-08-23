@@ -9,6 +9,7 @@ const card: ShareCardData = {
   xHandle: '@builder_ai',
   index: '14.0',
   spend: '$125.50',
+  spendLabel: 'EST. API VALUE',
   tokens: '42.8M',
   verificationLabel: 'VERIFIED USAGE',
   toolCount: 2,
@@ -28,6 +29,8 @@ describe('ProfileCardImage', () => {
       '$125.50', '42.8M', '3 live projects', 'www.aimaxxing.lol/@builder',
     ]) expect(html).toContain(value)
     expect(html).not.toContain('72%')
+    expect(html).toContain('EST. API VALUE')
+    expect(html).not.toContain('ACCOUNT SPEND')
     expect(html).not.toContain('AIMAXXING.VERCEL.APP')
   })
 })
