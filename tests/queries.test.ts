@@ -111,6 +111,43 @@ describe('getCollectiveSummary', () => {
     expect(summary.modelShares).toEqual(shareByModel(allRows))
     expect(summary.developers).toBe(1)
   })
+
+  // The invariant above only bites if the fixture contains rows the two paths
+  // could disagree about. The SQL path once computed shares inline and rendered
+  // "<synthetic>" plus a five-model 0.0% tail on the live homepage while
+  // shareByModel already filtered both.
+  it('drops placeholder models and collapses the sub-1% tail, same as shareByModel', async () => {
+    const [u] = await db.insert(users).values({
+      githubId: 'tail-user', handle: 'tail-user', publicOptIn: true,
+    }).returning()
+
+    const day = '2026-08-22'
+    const base = {
+      userId: u.id, tool: 'claude-code', day, sessions: 20,
+      tokensIn: 0, tokensOut: 0, cacheRead: 0, cacheWrite: 0,
+      source: 'reporter', verified: true,
+    }
+    await db.insert(toolDays).values([
+      { ...base, model: 'opus', costUsd: '500.0000' },
+      { ...base, model: 'sonnet', costUsd: '480.0000' },
+      { ...base, model: '<synthetic>', costUsd: '3.0000' },
+      { ...base, model: 'tiny-a', costUsd: '4.0000' },
+      { ...base, model: 'tiny-b', costUsd: '3.0000' },
+    ])
+
+    const now = new Date('2026-08-23T00:00:00Z')
+    const summary = await getCollectiveSummary(now)
+    const models = summary.modelShares.map((m) => m.model)
+
+    expect(models).not.toContain('<synthetic>')
+    expect(models).toEqual(['opus', 'sonnet', 'other'])
+    expect(summary.modelShares.reduce((a, m) => a + m.share, 0)).toBeCloseTo(1, 10)
+
+    // Both code paths must still agree.
+    expect(summary.modelShares).toEqual(shareByModel(await getCollectiveRows('all', now)))
+    // Placeholder spend still counts toward the headline number.
+    expect(summary.totals.costUsd).toBeCloseTo(990, 5)
+  })
 })
 
 describe('getCollectiveRows', () => {

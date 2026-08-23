@@ -1,6 +1,7 @@
 import { and, asc, eq, gte, notExists, sql } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { users, toolDays, reporterToolDays, githubStats, portfolioProjects } from '@/db/schema'
+import { presentModelShares } from './collective'
 import type { BurnRow } from './collective'
 import type { CollectiveTotals } from './collective'
 import type { Entrant } from './boards'
@@ -163,16 +164,13 @@ export async function getCollectiveSummary(today = new Date()): Promise<Collecti
   for (const row of [...modelRows, ...reporterModelRows]) {
     costByModel.set(row.model, (costByModel.get(row.model) ?? 0) + Number(row.costUsd))
   }
-  const modelCosts = [...costByModel]
-    .map(([model, costUsd]) => ({ model, costUsd }))
-    .sort((a, b) => b.costUsd - a.costUsd || a.model.localeCompare(b.model))
-  const verifiedSpend = modelCosts.reduce((total, row) => total + row.costUsd, 0)
+  const modelCosts = [...costByModel].map(([model, costUsd]) => ({ model, costUsd }))
   return {
     totals: addTotals(totalsFrom(allRows[0]), totalsFrom(reporterAllRows[0])),
     todayTotals: addTotals(totalsFrom(dayRows[0]), totalsFrom(reporterDayRows[0])),
-    modelShares: verifiedSpend > 0
-      ? modelCosts.map((row) => ({ ...row, share: row.costUsd / verifiedSpend }))
-      : [],
+    // Placeholder filtering, renormalisation and tail collapse all live in
+    // presentModelShares so this path and shareByModel cannot drift apart.
+    modelShares: presentModelShares(modelCosts),
     developers: new Set([...developerRows, ...reporterDeveloperRows].map((row) => row.userId)).size,
   }
 }

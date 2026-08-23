@@ -63,9 +63,30 @@ function collapseTail(groups: Grouped[]): Grouped[] {
   return [...large, { key: OTHER_LABEL, costUsd, share }]
 }
 
+/**
+ * The single presentation rule for the public model legend: drop placeholders,
+ * renormalise over what is left, collapse the long tail.
+ *
+ * Both callers go through here — `shareByModel` (row-shaped input) and
+ * `getCollectiveSummary` (pre-aggregated SQL sums). Keeping one function means a
+ * future third caller cannot quietly render a different-looking breakdown.
+ */
+export function presentModelShares(costs: { model: string; costUsd: number }[]) {
+  const real = costs.filter((c) => !isPlaceholderModel(c.model))
+  const total = real.reduce((a, c) => a + c.costUsd, 0)
+  if (total <= 0) return []
+
+  const groups = real
+    .map((c) => ({ key: c.model, costUsd: c.costUsd, share: c.costUsd / total }))
+    .sort((a, b) => b.costUsd - a.costUsd || a.key.localeCompare(b.key))
+
+  return collapseTail(groups).map(({ key, costUsd, share }) => ({ model: key, costUsd, share }))
+}
+
 export function shareByModel(rows: BurnRow[]) {
-  return collapseTail(groupShare(rows.filter((r) => !isPlaceholderModel(r.model)), (r) => r.model))
-    .map(({ key, costUsd, share }) => ({ model: key, costUsd, share }))
+  return presentModelShares(
+    groupShare(rows, (r) => r.model).map(({ key, costUsd }) => ({ model: key, costUsd })),
+  )
 }
 
 export function shareByTool(rows: BurnRow[]) {
