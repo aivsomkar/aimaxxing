@@ -9,7 +9,7 @@ import {
   QUALIFY_COST_USD,
   SESSIONS_CAP_PER_TOOL,
 } from '@/lib/index-math'
-import { formatUsd } from '@/lib/format'
+import { formatUsd, formatCount } from '@/lib/format'
 import { PortfolioGrid } from '@/components/PortfolioGrid'
 import { XHandleLink } from '@/components/XHandleLink'
 import { ProfileShareActions } from '@/components/ProfileShareActions'
@@ -124,11 +124,11 @@ export default async function Profile({ params }: { params: Promise<{ handle: st
             >
               <td className="py-2">{t.tool}</td>
               <td className="py-2 text-right font-mono tabular-nums">
-                {t.sessions.toLocaleString()}
+                {formatCount(t.sessions)}
               </td>
                 <td className="py-2 text-right font-mono tabular-nums">
                   {t.qualified
-                    ? `√${Math.min(t.sessions, SESSIONS_CAP_PER_TOOL).toLocaleString()} → ${fmt1(t.score)}`
+                    ? `√${formatCount(Math.min(t.sessions, SESSIONS_CAP_PER_TOOL))} → ${fmt1(t.score)}`
                     : `below floor (< ${QUALIFY_SESSIONS} sessions & < $${QUALIFY_COST_USD})`}
                 </td>
             </tr>
@@ -148,8 +148,8 @@ export default async function Profile({ params }: { params: Promise<{ handle: st
           </tr>
           <tr className="border-t border-border">
             <td className="py-2 text-muted-foreground" colSpan={2}>
-              output · <span className="font-mono tabular-nums">{p.mergedPrs.toLocaleString()}</span>{' '}
-              merged PRs + <span className="font-mono tabular-nums">{p.contributions.toLocaleString()}</span>{' '}
+              output · <span className="font-mono tabular-nums">{formatCount(p.mergedPrs)}</span>{' '}
+              merged PRs + <span className="font-mono tabular-nums">{formatCount(p.contributions)}</span>{' '}
               contributions ÷ <span className="font-mono tabular-nums">{CONTRIBUTIONS_PER_UNIT}</span>
               {outputCapped ? ` (capped at ${OUTPUT_CAP})` : ''}
             </td>

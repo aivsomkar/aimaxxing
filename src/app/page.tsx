@@ -1,12 +1,12 @@
 import { LiveStatBar } from '@/components/LiveStatBar'
 import { CollectiveCounter } from '@/components/CollectiveCounter'
 import { ModelSplit } from '@/components/ModelSplit'
-import { Board } from '@/components/Board'
+import { BoardTabs } from '@/components/BoardTabs'
 import { PrivateProfileNotice } from '@/components/PrivateProfileNotice'
 import { getCollectiveSummary, getEntrants } from '@/lib/queries'
 import { loadPublicHomeData } from '@/lib/home-data'
 import { rankBoard } from '@/lib/boards'
-import { formatUsd } from '@/lib/format'
+import { formatUsd, formatCount, formatScore } from '@/lib/format'
 
 export const revalidate = 15
 
@@ -35,28 +35,34 @@ export default async function Home() {
 
         <ModelSplit shares={summary.modelShares} />
 
-        <div className="grid gap-10 py-12 sm:grid-cols-2">
-          <Board
-            title="🔥 API Value"
-            entries={rankBoard('burn', entrants)}
-            format={(v) => `$${formatUsd(v)}`}
-          />
-          <Board
-            title="🎛 Breadth"
-            entries={rankBoard('breadth', entrants)}
-            format={(v) => `${v.toLocaleString()} ${v === 1 ? 'tool' : 'tools'}`}
-          />
-          <Board
-            title="⚡ Efficiency"
-            entries={rankBoard('efficiency', entrants)}
-            format={(v) => `$${formatUsd(v)}/PR`}
-          />
-          <Board
-            title="🏆 The Index"
-            entries={rankBoard('index', entrants)}
-            format={(v) => v.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
-          />
-        </div>
+        <BoardTabs
+          tabs={[
+            {
+              id: 'burn',
+              title: '🔥 API Value',
+              caption: 'Ranked by the estimated API-equivalent value of the tokens each developer used.',
+              entries: rankBoard('burn', entrants).map((e) => ({ ...e, display: `$${formatUsd(e.value)}` })),
+            },
+            {
+              id: 'breadth',
+              title: '🎛 Breadth',
+              caption: 'Ranked by how many tools a developer genuinely uses — a tool counts only past the qualifying floor.',
+              entries: rankBoard('breadth', entrants).map((e) => ({ ...e, display: `${formatCount(e.value)} ${e.value === 1 ? 'tool' : 'tools'}` })),
+            },
+            {
+              id: 'efficiency',
+              title: '⚡ Efficiency',
+              caption: 'Estimated API value per merged PR. Lower is better, and developers with no merged PRs are not ranked.',
+              entries: rankBoard('efficiency', entrants).map((e) => ({ ...e, display: `$${formatUsd(e.value)}/PR` })),
+            },
+            {
+              id: 'index',
+              title: '🏆 The Index',
+              caption: 'Σ √(sessions per tool) across qualifying tools, plus a capped output term. Spend never enters it.',
+              entries: rankBoard('index', entrants).map((e) => ({ ...e, display: formatScore(e.value) })),
+            },
+          ]}
+        />
       </main>
     </>
   )

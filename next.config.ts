@@ -6,9 +6,19 @@ import type { NextConfig } from 'next'
 //   styles, so 'unsafe-inline' is required for both until nonce-based
 //   middleware is added.
 // - frame-ancestors 'none' doubles as the X-Frame-Options replacement.
+// Next's dev server ships eval-based HMR/source maps, so a production-strict
+// script-src silently breaks hydration locally: client components render but
+// never become interactive, and the only clue is a CSP violation in the
+// console. 'unsafe-eval' is added in development ONLY — never in the deployed
+// policy.
+const scriptSrc =
+  process.env.NODE_ENV === 'development'
+    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+    : "script-src 'self' 'unsafe-inline'"
+
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  scriptSrc,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: https://avatars.githubusercontent.com https://github.com",
   "font-src 'self'",

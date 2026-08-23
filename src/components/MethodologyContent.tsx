@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { formatCount } from '@/lib/format'
 import {
   CONTRIBUTIONS_PER_UNIT,
   OUTPUT_CAP,
@@ -18,7 +19,7 @@ export function MethodologyContent() {
           Every intermediate number is visible on the profile and in its public JSON.
         </p>
         <div className="mt-5 overflow-x-auto border-y border-border py-5 font-mono text-sm text-foreground">
-          Index = Σ √(min(tool sessions, {SESSIONS_CAP_PER_TOOL.toLocaleString()})) + min({OUTPUT_CAP}, 2 × √(merged PRs + contributions ÷ {CONTRIBUTIONS_PER_UNIT}))
+          Index = Σ √(min(tool sessions, {formatCount(SESSIONS_CAP_PER_TOOL)})) + min({OUTPUT_CAP}, 2 × √(merged PRs + contributions ÷ {CONTRIBUTIONS_PER_UNIT}))
         </div>
       </section>
 
@@ -29,7 +30,7 @@ export function MethodologyContent() {
           A tool contributes to stack depth after at least {QUALIFY_SESSIONS} sessions
           or ${QUALIFY_COST_USD} of reported or estimated usage value. Qualifying tool depth is the square
           root of its sessions, rewarding breadth without letting repetition grow linearly.
-          Sessions past {SESSIONS_CAP_PER_TOOL.toLocaleString()} per tool still count toward displayed spend
+          Sessions past {formatCount(SESSIONS_CAP_PER_TOOL)} per tool still count toward displayed spend
           but not toward the score, so no single tool can dominate the stack.
         </p>
         <p className="mt-3 max-w-[70ch]">

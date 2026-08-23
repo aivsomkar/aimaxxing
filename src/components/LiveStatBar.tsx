@@ -1,3 +1,4 @@
+import { formatCount } from '@/lib/format'
 export function LiveStatBar({
   developers,
   tokensTotal,
@@ -13,14 +14,14 @@ export function LiveStatBar({
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-live" />
           <span className="font-mono tabular-nums text-foreground">
-            {developers.toLocaleString()}
+            {formatCount(developers)}
           </span>{' '}
           {developers === 1 ? 'developer' : 'developers'}
         </span>
         <span aria-hidden>·</span>
         <span>
           <span className="font-mono tabular-nums text-foreground">
-            {tokensTotal.toLocaleString()}
+            {formatCount(tokensTotal)}
           </span>{' '}
           tokens
         </span>

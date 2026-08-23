@@ -19,10 +19,9 @@ describe('Board social identity', () => {
   it('shows the X handle beside a ranked account when present', () => {
     const html = renderToStaticMarkup(<Board
       title="The Index"
-      format={(value) => String(value)}
       entries={[{
         handle: 'builder', avatarUrl: null, xHandle: '@builder_ai', value: 12,
-        verified: true, toolCount: 2, index: 12,
+        verified: true, toolCount: 2, index: 12, display: '$12.00',
       }]}
     />)
     expect(html).toContain('href="/@builder"')

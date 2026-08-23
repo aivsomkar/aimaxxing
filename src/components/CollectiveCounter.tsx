@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { formatUsd } from '@/lib/format'
+import { formatUsd, formatCount } from '@/lib/format'
 
 type Totals = { costUsd: number; tokensTotal: number; todayCostUsd: number; developers: number }
 
@@ -25,7 +25,7 @@ export function CollectiveCounter({ initial }: { initial: Totals }) {
           as enormous, while the dollar figure is small. Tokens are sized
           larger than dollars on purpose. */}
       <div className="font-mono text-4xl tracking-tight tabular-nums sm:text-6xl" aria-live="off">
-        {Math.round(t.tokensTotal).toLocaleString()}
+        {formatCount(t.tokensTotal)}
       </div>
       <h1 id="collective-counter-heading" className="mt-1 text-xs uppercase tracking-[0.3em] text-muted-foreground">
         tokens burned
@@ -40,7 +40,7 @@ export function CollectiveCounter({ initial }: { initial: Totals }) {
       <div className="mt-3 text-sm text-muted-foreground">
         by{' '}
         <span className="font-mono tabular-nums text-foreground">
-          {t.developers.toLocaleString()}
+          {formatCount(t.developers)}
         </span>{' '}
         {t.developers === 1 ? 'developer' : 'developers'} ·{' '}
         <span className="font-mono tabular-nums text-foreground">
