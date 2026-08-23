@@ -49,6 +49,28 @@ describe('shareByModel', () => {
   })
 })
 
+describe('shareByModel placeholder filtering', () => {
+  it('omits bracketed placeholder models from the public breakdown', () => {
+    const shares = shareByModel([
+      row({ model: 'opus', costUsd: 90 }),
+      row({ model: '<synthetic>', costUsd: 10 }),
+    ])
+    expect(shares.map((s) => s.model)).toEqual(['opus'])
+    // Shares renormalise over real models only, so they still sum to one.
+    expect(shares.reduce((a, s) => a + s.share, 0)).toBeCloseTo(1, 5)
+  })
+
+  it('still counts placeholder spend in the collective total', () => {
+    const rows = [row({ model: 'opus', costUsd: 90 }), row({ model: '<synthetic>', costUsd: 10 })]
+    expect(collectiveTotals(rows).costUsd).toBe(100)
+  })
+
+  it('does not filter ordinary model names that merely contain angle-ish text', () => {
+    const shares = shareByModel([row({ model: 'gpt-5.6-sol', costUsd: 10 })])
+    expect(shares.map((s) => s.model)).toEqual(['gpt-5.6-sol'])
+  })
+})
+
 describe('shareByTool', () => {
   it('excludes self-reported rows, same as shareByModel', () => {
     const rows = [

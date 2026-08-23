@@ -42,7 +42,7 @@ export function CollectiveCounter({ initial }: { initial: Totals }) {
         <span className="font-mono tabular-nums text-foreground">
           {t.developers.toLocaleString()}
         </span>{' '}
-        developers ·{' '}
+        {t.developers === 1 ? 'developer' : 'developers'} ·{' '}
         <span className="font-mono tabular-nums text-foreground">
           ${formatUsd(t.todayCostUsd)}
         </span>{' '}

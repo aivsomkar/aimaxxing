@@ -148,8 +148,9 @@ export default async function Profile({ params }: { params: Promise<{ handle: st
           </tr>
           <tr className="border-t border-border">
             <td className="py-2 text-muted-foreground" colSpan={2}>
-              output · {p.mergedPrs.toLocaleString()} merged PRs + {p.contributions.toLocaleString()}{' '}
-              contributions ÷ {CONTRIBUTIONS_PER_UNIT}
+              output · <span className="font-mono tabular-nums">{p.mergedPrs.toLocaleString()}</span>{' '}
+              merged PRs + <span className="font-mono tabular-nums">{p.contributions.toLocaleString()}</span>{' '}
+              contributions ÷ <span className="font-mono tabular-nums">{CONTRIBUTIONS_PER_UNIT}</span>
               {outputCapped ? ` (capped at ${OUTPUT_CAP})` : ''}
             </td>
             <td className="py-2 text-right font-mono tabular-nums">
@@ -168,7 +169,8 @@ export default async function Profile({ params }: { params: Promise<{ handle: st
       </table>
 
       <p className="mt-8 text-xs text-muted-foreground">
-        {card.spendLabel} {card.spend} — not included in the Index.{' '}
+        {card.spendLabel} <span className="font-mono tabular-nums">{card.spend}</span> — not included in
+        the Index.{' '}
         {isPublic && (
           <><a className="underline" href={`/api/v1/profile/${p.user.handle}`}>Raw JSON</a>{' · '}</>
         )}

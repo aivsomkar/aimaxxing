@@ -15,7 +15,7 @@ export function LiveStatBar({
           <span className="font-mono tabular-nums text-foreground">
             {developers.toLocaleString()}
           </span>{' '}
-          developers
+          {developers === 1 ? 'developer' : 'developers'}
         </span>
         <span aria-hidden>·</span>
         <span>

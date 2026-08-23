@@ -38,8 +38,15 @@ function groupShare(rows: BurnRow[], key: (r: BurnRow) => string) {
     .sort((a, b) => b.costUsd - a.costUsd)
 }
 
+// Agents report bracketed placeholders (Claude Code's "<synthetic>") for work that
+// ran no real model. Their spend still belongs in the collective total, but naming
+// them in the public model breakdown pollutes the one artifact that is supposed to
+// be defensible market-share data.
+const isPlaceholderModel = (model: string) => /^<.*>$/.test(model.trim())
+
 export function shareByModel(rows: BurnRow[]) {
-  return groupShare(rows, (r) => r.model).map(({ key, costUsd, share }) => ({ model: key, costUsd, share }))
+  return groupShare(rows.filter((r) => !isPlaceholderModel(r.model)), (r) => r.model)
+    .map(({ key, costUsd, share }) => ({ model: key, costUsd, share }))
 }
 
 export function shareByTool(rows: BurnRow[]) {
