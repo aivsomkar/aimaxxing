@@ -123,5 +123,10 @@ describe('reporter store', () => {
       .where(eq(schema.reporterToolDays.reporterId, reporters[0].id))).toHaveLength(0)
     expect(await database.select().from(schema.reporterToolDays)
       .where(eq(schema.reporterToolDays.reporterId, reporters[1].id))).toHaveLength(1)
+    // Deleting the data must also revoke the reporter so its next signed
+    // snapshot cannot silently re-upload everything that was just destroyed.
+    const [afterDelete] = await database.select().from(schema.reporters)
+      .where(eq(schema.reporters.id, reporters[0].id))
+    expect(afterDelete.revokedAt).not.toBeNull()
   })
 })

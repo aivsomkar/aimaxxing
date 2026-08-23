@@ -48,6 +48,10 @@ export const toolDays = pgTable('tool_days', {
   sponsored: boolean('sponsored').notNull().default(false),
 }, (t) => ({
   uniq: uniqueIndex('tool_days_uniq').on(t.userId, t.tool, t.model, t.day),
+  // Every public aggregate filters on a day cutoff (homepage revalidates every
+  // 15s); the unique index above leads with user_id, so a standalone day index
+  // is what keeps those range scans off a full-table seq scan.
+  dayIdx: index('tool_days_day_idx').on(t.day),
 }))
 
 export const githubStats = pgTable('github_stats', {
@@ -183,4 +187,5 @@ export const reporterToolDays = pgTable('reporter_tool_days', {
   reporterDay: uniqueIndex('reporter_tool_days_reporter_tool_model_day_uniq')
     .on(table.reporterId, table.tool, table.model, table.day),
   user: index('reporter_tool_days_user_idx').on(table.userId),
+  day: index('reporter_tool_days_day_idx').on(table.day),
 }))

@@ -11,6 +11,14 @@ const slug = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9.+-]+/g, '-'
 // a blank tool/model bucket that shows up as an empty row in aggregates.
 const slugsToSomething = (s: string) => slug(s).length > 0
 
+// A row may be dated up to one day ahead of UTC "today": reporters stamp their
+// machine-local calendar day, so a developer at UTC+13 legitimately reports
+// tomorrow's date while it is still yesterday in UTC. Anything further is
+// fabrication and would instantly pollute all-window totals.
+export function maxAcceptableDay(today = new Date()): string {
+  return new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+}
+
 const dayRow = z.object({
   tool: z.string().min(1).max(60).refine(slugsToSomething, 'must contain at least one slug-able character'),
   model: z.string().min(1).max(60).refine(slugsToSomething, 'must contain at least one slug-able character'),
@@ -19,7 +27,7 @@ const dayRow = z.object({
   day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((d) => {
     const parsed = new Date(`${d}T00:00:00Z`)
     return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === d
-  }, 'not a real calendar date'),
+  }, 'not a real calendar date').refine((d) => d <= maxAcceptableDay(), 'day cannot be in the future'),
   sessions: z.number().int().min(0).max(100_000),
   tokensIn: z.number().int().min(0).max(MAX_TOKENS_PER_DAY),
   tokensOut: z.number().int().min(0).max(MAX_TOKENS_PER_DAY),

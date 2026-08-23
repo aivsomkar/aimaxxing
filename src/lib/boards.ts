@@ -23,6 +23,10 @@ export type BoardEntry = {
   index: number
 }
 
+// Boards render a ranked list, not a directory: slice after sorting so the
+// rendered surface (and the homepage payload) stays bounded as the arena grows.
+export const BOARD_SIZE = 50
+
 export function rankBoard(kind: BoardKind, entrants: Entrant[]): BoardEntry[] {
   const rows = entrants.flatMap((e) => {
     const breakdown = computeIndex(e.tools, { mergedPrs: e.mergedPrs, contributions: e.contributions })
@@ -50,5 +54,5 @@ export function rankBoard(kind: BoardKind, entrants: Entrant[]): BoardEntry[] {
     // Verified outranks self-reported at equal value.
     if (a.verified !== b.verified) return a.verified ? -1 : 1
     return a.handle.localeCompare(b.handle)
-  })
+  }).slice(0, BOARD_SIZE)
 }

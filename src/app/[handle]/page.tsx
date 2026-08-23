@@ -7,12 +7,13 @@ import {
   OUTPUT_CAP,
   QUALIFY_SESSIONS,
   QUALIFY_COST_USD,
+  SESSIONS_CAP_PER_TOOL,
 } from '@/lib/index-math'
 import { formatUsd } from '@/lib/format'
 import { PortfolioGrid } from '@/components/PortfolioGrid'
 import { XHandleLink } from '@/components/XHandleLink'
 import { ProfileShareActions } from '@/components/ProfileShareActions'
-import { buildShareCardData } from '@/lib/share-card'
+import { buildShareCardData, decodeShareHandle } from '@/lib/share-card'
 
 // NOTE for future editors: this directory MUST be named `[handle]`, not
 // `@[handle]`. A leading `@` in a Next.js route segment name declares a
@@ -28,10 +29,9 @@ export default async function Profile({ params }: { params: Promise<{ handle: st
   // Next.js percent-encodes a dynamic segment that begins with '@' (e.g. the
   // literal request path /@omkar arrives as params.handle === '%40omkar'),
   // to keep it unambiguous with the '@folder' parallel-route convention at
-  // the filesystem level. decodeURIComponent before stripping the '@' so
-  // both that encoded form and a plain '@omkar' work.
-  const raw = decodeURIComponent((await params).handle)
-  const handle = raw.startsWith('@') ? raw.slice(1) : raw
+  // the filesystem level. decodeShareHandle decodes safely (a malformed
+  // escape must 404, not 500) and strips the '@'.
+  const handle = decodeShareHandle((await params).handle)
   const session = await auth()
   const viewerHandle = (session?.user as { handle?: string } | undefined)?.handle ?? null
   const result = await getProfileForViewer(handle, viewerHandle)
@@ -126,11 +126,11 @@ export default async function Profile({ params }: { params: Promise<{ handle: st
               <td className="py-2 text-right font-mono tabular-nums">
                 {t.sessions.toLocaleString()}
               </td>
-              <td className="py-2 text-right font-mono tabular-nums">
-                {t.qualified
-                  ? `√${t.sessions} → ${fmt1(t.score)}`
-                  : `below floor (< ${QUALIFY_SESSIONS} sessions & < $${QUALIFY_COST_USD})`}
-              </td>
+                <td className="py-2 text-right font-mono tabular-nums">
+                  {t.qualified
+                    ? `√${Math.min(t.sessions, SESSIONS_CAP_PER_TOOL).toLocaleString()} → ${fmt1(t.score)}`
+                    : `below floor (< ${QUALIFY_SESSIONS} sessions & < $${QUALIFY_COST_USD})`}
+                </td>
             </tr>
           ))}
           {b.perTool.length === 0 && (

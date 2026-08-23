@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { computeIndex, qualifies, toolScore, outputTerm, OUTPUT_CAP } from '../src/lib/index-math'
+import {
+  computeIndex,
+  qualifies,
+  toolScore,
+  outputTerm,
+  OUTPUT_CAP,
+  SESSIONS_CAP_PER_TOOL,
+} from '../src/lib/index-math'
 
 const t = (tool: string, sessions: number, costUsd = 0) => ({ tool, sessions, costUsd })
 
@@ -21,6 +28,16 @@ describe('toolScore', () => {
   })
   it('ignores spend entirely so rank cannot be purchased', () => {
     expect(toolScore(t('a', 100, 0))).toBeCloseTo(toolScore(t('a', 100, 99999)), 5)
+  })
+  // Anti-gaming cap: sessions sum across models and days before scoring and
+  // the manual path accepts up to 100k sessions per row, so an uncapped
+  // square root would let one fabricated tool dominate the entire board.
+  it('caps counted sessions per tool so fabricated volume cannot dominate', () => {
+    const capped = t('fake', SESSIONS_CAP_PER_TOOL * 1000)
+    expect(toolScore(capped)).toBeCloseTo(Math.sqrt(SESSIONS_CAP_PER_TOOL), 5)
+    const r = computeIndex([capped], { mergedPrs: 0, contributions: 0 })
+    expect(r.perTool[0].countedSessions).toBe(SESSIONS_CAP_PER_TOOL)
+    expect(r.perTool[0].sessions).toBe(SESSIONS_CAP_PER_TOOL * 1000)
   })
 })
 

@@ -7,12 +7,18 @@ export const QUALIFY_SESSIONS = 20
 export const QUALIFY_COST_USD = 5
 export const OUTPUT_CAP = 20
 export const CONTRIBUTIONS_PER_UNIT = 25
+// Anti-gaming cap: tool/model/day rows are self-reported (manual path) with up
+// to 100,000 sessions each, and sessions sum across models and days before
+// scoring. Without a ceiling, one fabricated tool claiming ~2M sessions would
+// add ~1,414 points. Sessions past the cap count toward spend display but not
+// toward the score.
+export const SESSIONS_CAP_PER_TOOL = 1_000
 
 export type ToolDepth = { tool: string; sessions: number; costUsd: number }
 export type Output = { mergedPrs: number; contributions: number }
 
 export type IndexBreakdown = {
-  perTool: { tool: string; sessions: number; score: number; qualified: boolean }[]
+  perTool: { tool: string; sessions: number; countedSessions: number; score: number; qualified: boolean }[]
   stackDepth: number
   outputTerm: number
   index: number
@@ -25,7 +31,11 @@ export function qualifies(t: ToolDepth): boolean {
 // Concave in sessions: the marginal session in a new tool is worth more than the
 // nth session in an existing one. Spend is deliberately absent - see the spec.
 export function toolScore(t: ToolDepth): number {
-  return Math.sqrt(Math.max(0, t.sessions))
+  return Math.sqrt(countedSessions(t))
+}
+
+export function countedSessions(t: ToolDepth): number {
+  return Math.min(Math.max(0, t.sessions), SESSIONS_CAP_PER_TOOL)
 }
 
 export function outputTerm(o: Output): number {
@@ -36,7 +46,13 @@ export function outputTerm(o: Output): number {
 export function computeIndex(tools: ToolDepth[], output: Output): IndexBreakdown {
   const perTool = tools.map((t) => {
     const qualified = qualifies(t)
-    return { tool: t.tool, sessions: t.sessions, score: qualified ? toolScore(t) : 0, qualified }
+    return {
+      tool: t.tool,
+      sessions: t.sessions,
+      countedSessions: countedSessions(t),
+      score: qualified ? toolScore(t) : 0,
+      qualified,
+    }
   })
   const stackDepth = perTool.reduce((a, p) => a + p.score, 0)
   const term = outputTerm(output)

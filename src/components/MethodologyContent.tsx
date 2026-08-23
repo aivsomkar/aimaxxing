@@ -4,6 +4,7 @@ import {
   OUTPUT_CAP,
   QUALIFY_COST_USD,
   QUALIFY_SESSIONS,
+  SESSIONS_CAP_PER_TOOL,
 } from '@/lib/index-math'
 
 export function MethodologyContent() {
@@ -17,7 +18,7 @@ export function MethodologyContent() {
           Every intermediate number is visible on the profile and in its public JSON.
         </p>
         <div className="mt-5 overflow-x-auto border-y border-border py-5 font-mono text-sm text-foreground">
-          Index = Σ √(tool sessions) + min({OUTPUT_CAP}, 2 × √(merged PRs + contributions ÷ {CONTRIBUTIONS_PER_UNIT}))
+          Index = Σ √(min(tool sessions, {SESSIONS_CAP_PER_TOOL.toLocaleString()})) + min({OUTPUT_CAP}, 2 × √(merged PRs + contributions ÷ {CONTRIBUTIONS_PER_UNIT}))
         </div>
       </section>
 
@@ -28,6 +29,12 @@ export function MethodologyContent() {
           A tool contributes to stack depth after at least {QUALIFY_SESSIONS} sessions
           or ${QUALIFY_COST_USD} of reported or estimated usage value. Qualifying tool depth is the square
           root of its sessions, rewarding breadth without letting repetition grow linearly.
+          Sessions past {SESSIONS_CAP_PER_TOOL.toLocaleString()} per tool still count toward displayed spend
+          but not toward the score, so no single tool can dominate the stack.
+        </p>
+        <p className="mt-3 max-w-[70ch]">
+          Usage is never double-counted: when the same tool, model, and day exists as both a
+          self-reported row and a verified reporter row, only the verified copy counts.
         </p>
         <p className="mt-3 max-w-[70ch]">
           Usage value is displayed as part of the build record but never added directly to the

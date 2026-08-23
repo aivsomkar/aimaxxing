@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, sql } from 'drizzle-orm'
+import { and, asc, eq, gte, notExists, sql } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { users, toolDays, reporterToolDays, githubStats, portfolioProjects } from '@/db/schema'
 import type { BurnRow } from './collective'
@@ -30,6 +30,22 @@ function isPublic(u: { publicOptIn: boolean }, hasData: boolean): boolean {
   return canAppearOnBoards({ publicOptIn: u.publicOptIn, hasData })
 }
 
+// Anti-double-counting rule: a manual row whose (user, tool, model, day) also
+// exists as a signed reporter row is shadowed by the verified copy and is
+// excluded from EVERY aggregate below. Without this, a developer who reports
+// the same real-world usage through both the manual form and a linked device
+// would be counted twice in the collective counter, boards, and profiles.
+// Every tool_days read in this file MUST include this condition.
+const manualRowShadowedByVerified = notExists(
+  db.select({ one: sql`1` }).from(reporterToolDays).where(and(
+    eq(reporterToolDays.userId, toolDays.userId),
+    eq(reporterToolDays.tool, toolDays.tool),
+    eq(reporterToolDays.model, toolDays.model),
+    eq(reporterToolDays.day, toolDays.day),
+  )),
+)
+
+
 // Feeds the homepage collective counter. Deliberately NOT gated by consent:
 // the counter is anonymous and aggregate (a total, never attributed to a
 // handle), and the brief's reference implementation for this function sums
@@ -38,7 +54,10 @@ function isPublic(u: { publicOptIn: boolean }, hasData: boolean): boolean {
 export async function getCollectiveRows(window: Window, today = new Date()): Promise<BurnRow[]> {
   const cutoff = cutoffFor(window, today)
   const [manualRows, verifiedRows] = await Promise.all([
-    db.select().from(toolDays).where(cutoff ? gte(toolDays.day, cutoff) : undefined),
+    db.select().from(toolDays).where(and(
+      cutoff ? gte(toolDays.day, cutoff) : undefined,
+      manualRowShadowedByVerified,
+    )),
     db.select().from(reporterToolDays)
       .where(cutoff ? gte(reporterToolDays.day, cutoff) : undefined),
   ])
@@ -113,9 +132,12 @@ export async function getCollectiveSummary(today = new Date()): Promise<Collecti
     allRows, reporterAllRows, dayRows, reporterDayRows,
     modelRows, reporterModelRows, developerRows, reporterDeveloperRows,
   ] = await Promise.all([
-    db.select(aggregateSelection).from(toolDays),
+    db.select(aggregateSelection).from(toolDays).where(manualRowShadowedByVerified),
     db.select(reporterAggregateSelection).from(reporterToolDays),
-    db.select(aggregateSelection).from(toolDays).where(gte(toolDays.day, todayUtc)),
+    db.select(aggregateSelection).from(toolDays).where(and(
+      gte(toolDays.day, todayUtc),
+      manualRowShadowedByVerified,
+    )),
     db.select(reporterAggregateSelection).from(reporterToolDays)
       .where(gte(reporterToolDays.day, todayUtc)),
     db.select({
@@ -171,7 +193,10 @@ export async function getEntrants(window: Window, today = new Date()): Promise<E
   })
     .from(users)
     .innerJoin(toolDays, eq(toolDays.userId, users.id))
-    .where(cutoff ? gte(toolDays.day, cutoff) : undefined),
+    .where(and(
+      cutoff ? gte(toolDays.day, cutoff) : undefined,
+      manualRowShadowedByVerified,
+    )),
   db.select({
     handle: users.handle, avatarUrl: users.avatarUrl, publicOptIn: users.publicOptIn,
     xHandle: users.xHandle, tagOptIn: users.tagOptIn,
@@ -271,6 +296,9 @@ function profileSummary(profile: ProfileRecord) {
 }
 
 export async function getProfileRecord(handle: string): Promise<ProfileRecord | null> {
+  // Handles are lowercased at creation; normalize so /@Omkar resolves the same
+  // profile as /@omkar instead of 404ing a real developer.
+  const normalized = handle.toLowerCase()
   const [u] = await db
     .select({
       id: users.id,
@@ -281,11 +309,14 @@ export async function getProfileRecord(handle: string): Promise<ProfileRecord | 
       tagOptIn: users.tagOptIn,
     })
     .from(users)
-    .where(eq(users.handle, handle))
+    .where(eq(users.handle, normalized))
   if (!u) return null
 
   const [manualRows, reporterRows, stats, projects] = await Promise.all([
-    db.select().from(toolDays).where(eq(toolDays.userId, u.id)),
+    db.select().from(toolDays).where(and(
+      eq(toolDays.userId, u.id),
+      manualRowShadowedByVerified,
+    )),
     db.select().from(reporterToolDays).where(eq(reporterToolDays.userId, u.id)),
     db.select().from(githubStats).where(eq(githubStats.userId, u.id)),
     db
@@ -359,7 +390,7 @@ export async function getProfileVisibility(handle: string): Promise<{ isPublic: 
   const [user] = await db
     .select({ id: users.id, publicOptIn: users.publicOptIn })
     .from(users)
-    .where(eq(users.handle, handle))
+    .where(eq(users.handle, handle.toLowerCase()))
   if (!user) return null
   if (!user.publicOptIn) return { isPublic: false }
 

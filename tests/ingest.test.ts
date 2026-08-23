@@ -25,6 +25,15 @@ describe('reportSchema', () => {
     const bad = { days: [{ ...payload.days[0], day: '2026-13-99' }] }
     expect(reportSchema.safeParse(bad).success).toBe(false)
   })
+  it('rejects a day further than one day ahead of UTC today', () => {
+    const bad = { days: [{ ...payload.days[0], day: '2099-01-01' }] }
+    expect(reportSchema.safeParse(bad).success).toBe(false)
+  })
+  it('accepts a day up to one day ahead of UTC today (UTC+offset reporters)', () => {
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const ok = { days: [{ ...payload.days[0], day: tomorrow }] }
+    expect(reportSchema.safeParse(ok).success).toBe(true)
+  })
   it('rejects a tool that is only symbols and slugs down to nothing', () => {
     const bad = { days: [{ ...payload.days[0], tool: '★★★' }] }
     expect(reportSchema.safeParse(bad).success).toBe(false)

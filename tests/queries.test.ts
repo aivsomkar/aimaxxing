@@ -540,4 +540,61 @@ describe('profile query layers', () => {
     expect(profile?.anyUnverified).toBe(true)
     expect(profile?.tokenTotals.total).toBe(107)
   })
+
+  // Anti-double-counting rule: a manual row whose (user, tool, model, day)
+  // also exists as a verified reporter row is shadowed by the verified copy
+  // in every aggregate. Without this, reporting the same real-world usage via
+  // both the manual form and a linked device would count it twice.
+  it('counts a day/tool/model once when both manual and verified rows exist', async () => {
+    const [user] = await db.insert(users).values({
+      githubId: 'dedupe-owner', handle: 'dedupe-owner', publicOptIn: true,
+    }).returning()
+    const [reporter] = await db.insert(reporters).values({
+      userId: user.id, machineIdHash: 'dedupe-machine', machineLabel: 'Laptop',
+      publicKey: 'dedupe-key', publicKeyFingerprint: 'dedupe-fingerprint',
+    }).returning()
+    await db.insert(toolDays).values([
+      {
+        userId: user.id, tool: 'codex-cli', model: 'gpt-5', day: '2026-08-22',
+        sessions: 10, costUsd: '9.0000', source: 'manual', verified: false,
+      },
+      {
+        userId: user.id, tool: 'claude-code', model: 'opus', day: '2026-08-22',
+        sessions: 4, costUsd: '7.0000', source: 'manual', verified: false,
+      },
+    ])
+    await db.insert(reporterToolDays).values({
+      reporterId: reporter.id, userId: user.id,
+      tool: 'codex-cli', model: 'gpt-5', day: '2026-08-22',
+      sessions: 10, costUsd: '3.5000',
+    })
+
+    const rows = await getCollectiveRows('all')
+    expect(rows).toHaveLength(2) // shadowed manual row is gone, distinct tool remains
+    expect(rows.find((row) => row.tool === 'codex-cli')?.costUsd).toBe(3.5)
+
+    const summary = await getCollectiveSummary(new Date('2026-08-23T12:00:00Z'))
+    expect(summary.totals.costUsd).toBeCloseTo(10.5, 5)
+
+    const [entrant] = await getEntrants('all')
+    expect(entrant.costUsd).toBeCloseTo(10.5, 5)
+    expect(entrant.tools.find((tool) => tool.tool === 'codex-cli')).toMatchObject({
+      sessions: 10, costUsd: 3.5,
+    })
+
+    const profile = await getProfileRecord('dedupe-owner')
+    expect(profile?.costUsd).toBeCloseTo(10.5, 5)
+  })
+
+  it('resolves profiles case-insensitively', async () => {
+    const [user] = await db.insert(users).values({
+      githubId: 'case-owner', handle: 'case-owner', publicOptIn: true,
+    }).returning()
+    await db.insert(toolDays).values({
+      userId: user.id, tool: 'codex-cli', model: 'gpt-5', day: '2026-08-22',
+      sessions: 25, costUsd: '2.0000', source: 'manual', verified: false,
+    })
+    expect((await getPublicProfile('CASE-OWNER'))?.user.handle).toBe('case-owner')
+    expect(await getProfileVisibility('CASE-OWNER')).toEqual({ isPublic: true })
+  })
 })

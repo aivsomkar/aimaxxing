@@ -3,7 +3,15 @@ import { formatUsd } from '@/lib/format'
 import type { ProfileRecord } from '@/lib/queries'
 
 export function decodeShareHandle(value: string): string {
-  const decoded = decodeURIComponent(value)
+  // URL segments can carry a bare '%' (e.g. /foo%25zz or /50%off), which makes
+  // decodeURIComponent throw a URIError and would 500 a public route. Fall
+  // back to the raw segment; the lookup simply misses.
+  let decoded: string
+  try {
+    decoded = decodeURIComponent(value)
+  } catch {
+    decoded = value
+  }
   return decoded.startsWith('@') ? decoded.slice(1) : decoded
 }
 

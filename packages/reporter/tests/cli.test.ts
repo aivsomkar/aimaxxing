@@ -7,10 +7,11 @@ import {
   defaultApiBaseUrl,
   defaultMachineLabel,
   isMainModule,
+  isSafeVerificationUrl,
   runCli,
   type CliDependencies,
 } from '../src/cli'
-import { ReporterHttpError } from '../src/http'
+import { assertApiBaseUrl, ReporterHttpError } from '../src/http'
 import {
   ReporterConfigError,
   type PendingReporterLink,
@@ -210,6 +211,22 @@ describe('reporter CLI', () => {
     expect(output.join('\n')).toContain('No supported AI usage was found')
   })
 
+  it('discards a corrupt pending link instead of bricking every future connect', async () => {
+    const { deps } = dependencies({
+      loadPendingLink: vi.fn(async () => {
+        throw new ReporterConfigError('Pending reporter link is corrupt or unreadable.')
+      }),
+    })
+    vi.mocked(deps.http.pollLink).mockResolvedValue({
+      status: 'approved', reporterId: 'b10a30c0-1eb4-4f5b-87ae-12bd3a7848f3', handle: 'builder',
+    })
+
+    expect(await runCli(['link', '--yes'], deps)).toBe(0)
+
+    expect(deps.removePendingLink).toHaveBeenCalled()
+    expect(deps.http.startLink).toHaveBeenCalled()
+  })
+
   it('a resumed import still requires consent for the current aggregate', async () => {
     const fixture = dependencies({
       confirm: vi.fn(async () => false),
@@ -283,5 +300,34 @@ describe('reporter CLI', () => {
       action: 'revoke', deleteData: true,
     }), 'private-pem')
     expect(deps.http.revokeReporter).toHaveBeenCalled()
+  })
+})
+
+describe('verification URL safety', () => {
+  it('accepts an HTTPS URL on the same host as the API base', () => {
+    expect(isSafeVerificationUrl(
+      'https://example.test/link?code=ABCD',
+      'https://example.test',
+    )).toBe(true)
+  })
+
+  it('rejects a different host, non-HTTPS scheme, and malformed URLs', () => {
+    expect(isSafeVerificationUrl('https://evil.example/link', 'https://example.test')).toBe(false)
+    expect(isSafeVerificationUrl('http://example.test/link', 'https://example.test')).toBe(false)
+    expect(isSafeVerificationUrl('file:///etc/passwd', 'https://example.test')).toBe(false)
+    expect(isSafeVerificationUrl('not a url', 'https://example.test')).toBe(false)
+  })
+})
+
+describe('API base URL transport security', () => {
+  it('requires HTTPS except for local development hosts', () => {
+    expect(() => assertApiBaseUrl('https://api.example.test')).not.toThrow()
+    expect(() => assertApiBaseUrl('http://localhost:3000')).not.toThrow()
+    expect(() => assertApiBaseUrl('http://127.0.0.1:3000')).not.toThrow()
+    expect(() => assertApiBaseUrl('http://api.example.test'))
+      .toThrow(/HTTPS/)
+    expect(() => assertApiBaseUrl('ftp://api.example.test'))
+      .toThrow(/HTTPS/)
+    expect(() => assertApiBaseUrl('not a url')).toThrow(/not a valid URL/)
   })
 })

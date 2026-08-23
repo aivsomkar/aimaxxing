@@ -166,13 +166,19 @@ export async function deleteReporterData(
   userId: number,
   reporterId: string,
 ): Promise<boolean> {
-  const [owned] = await database.select({ id: reporters.id }).from(reporters).where(and(
-    eq(reporters.id, reporterId),
-    eq(reporters.userId, userId),
-  ))
-  if (!owned) return false
-  await database.delete(reporterToolDays).where(eq(reporterToolDays.reporterId, reporterId))
-  return true
+  // Deleting the synced usage must also revoke the reporter: otherwise the
+  // still-linked device's next signed snapshot would re-upload every row the
+  // user just asked to destroy. Revocation is idempotent, so re-deleting an
+  // already-revoked device's leftovers still works.
+  return database.transaction(async (transaction) => {
+    const rows = await transaction.update(reporters).set({ revokedAt: new Date() }).where(and(
+      eq(reporters.id, reporterId),
+      eq(reporters.userId, userId),
+    )).returning({ id: reporters.id })
+    if (rows.length !== 1) return false
+    await transaction.delete(reporterToolDays).where(eq(reporterToolDays.reporterId, reporterId))
+    return true
+  })
 }
 
 export async function recordReporterSubmission(database: Database, input: {

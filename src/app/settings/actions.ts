@@ -96,5 +96,5 @@ export async function deleteUsageReporterData(formData: FormData) {
     redirect('/settings?error=Type%20the%20displayed%20fingerprint%20exactly%20to%20delete%20reporter%20data')
   }
   revalidatePublicSurfaces(u.handle)
-  redirect('/settings?notice=Reporter%20usage%20deleted')
+  redirect('/settings?notice=Reporter%20usage%20deleted%20and%20device%20revoked')
 }

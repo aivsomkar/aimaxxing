@@ -1,27 +1,11 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db/client'
 import { applyReporterSnapshot, ReporterIngestError } from '@/lib/reporter-ingest'
+import { clientIp, rateLimit } from '@/lib/rate-limit'
 
 const MAX_BODY_BYTES = 1_048_576
 const RATE_WINDOW_MS = 60_000
 const RATE_LIMIT = 12
-const requestCounts = new Map<string, { count: number; resetsAt: number }>()
-
-function rateLimited(reporterId: string, now: number): boolean {
-  if (requestCounts.size > 10_000) {
-    for (const [key, value] of requestCounts) {
-      if (value.resetsAt <= now) requestCounts.delete(key)
-    }
-    if (requestCounts.size > 10_000) requestCounts.delete(requestCounts.keys().next().value!)
-  }
-  const current = requestCounts.get(reporterId)
-  if (!current || current.resetsAt <= now) {
-    requestCounts.set(reporterId, { count: 1, resetsAt: now + RATE_WINDOW_MS })
-    return false
-  }
-  current.count += 1
-  return current.count > RATE_LIMIT
-}
 
 function statusFor(error: ReporterIngestError): number {
   if (error.code === 'invalid_report' || error.code === 'unsupported_pricing_version') return 400
@@ -45,10 +29,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'invalid_report' }, { status: 400 })
   }
 
+  // The limiter key pairs the client IP with the claimed reporterId. Keying by
+  // reporterId alone would let an attacker who knows a victim's reporter UUID
+  // exhaust the victim's quota from anywhere; keying by IP alone would throttle
+  // distinct reporters behind one NAT. With the pair, garbage traffic from an
+  // attacker's own IP never touches the victim's bucket.
   const reporterId = typeof body === 'object' && body !== null && 'reporterId' in body
     ? String(body.reporterId)
     : 'invalid'
-  if (rateLimited(reporterId, Date.now())) {
+  if (rateLimit(`${clientIp(request)}|${reporterId}`, RATE_LIMIT, RATE_WINDOW_MS)) {
     return NextResponse.json(
       { error: 'rate_limited' },
       { status: 429, headers: { 'Retry-After': '60' } },
@@ -62,7 +51,7 @@ export async function POST(request: Request) {
     if (error instanceof ReporterIngestError) {
       return NextResponse.json({ error: error.code }, { status: statusFor(error) })
     }
-    console.error('reporter_ingest_failed')
+    console.error('reporter_ingest_failed', error)
     return NextResponse.json({ error: 'reporter_unavailable' }, { status: 503 })
   }
 }

@@ -13,7 +13,26 @@ export class ReporterHttpError extends Error {
 }
 
 function endpoint(baseUrl: string, path: string): string {
+  assertApiBaseUrl(baseUrl)
   return new URL(path, `${baseUrl.replace(/\/$/, '')}/`).toString()
+}
+
+// The reporter transmits its public key, machine ID, device code, and signed
+// usage over this base URL; a plaintext (or non-HTTP) scheme would expose all
+// of them to anyone on the path. Plain HTTP is only tolerated for local
+// development hosts.
+const INSECURE_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1'])
+
+export function assertApiBaseUrl(baseUrl: string): void {
+  let parsed: URL
+  try {
+    parsed = new URL(baseUrl)
+  } catch {
+    throw new Error(`AI Maxxing API URL is not a valid URL: ${baseUrl}`)
+  }
+  if (parsed.protocol === 'https:') return
+  if (parsed.protocol === 'http:' && INSECURE_HOSTS.has(parsed.hostname)) return
+  throw new Error('AI Maxxing API URL must use HTTPS (plain HTTP is only allowed for localhost).')
 }
 
 async function postJson<T>(fetcher: Fetch, url: string, body: unknown): Promise<T> {

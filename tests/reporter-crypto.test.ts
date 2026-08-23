@@ -70,4 +70,10 @@ describe('reporter signature verification', () => {
     expect(() => verifySignedReport(valid.value, valid.publicKey, new Date('2026-08-23T10:05:01Z')))
       .toThrowError(/timestamp/i)
   })
+
+  it('rejects rows dated further than one day ahead of UTC today', () => {
+    const future = signed({ rows: [{ ...report.rows[0], day: '2099-01-01' }] })
+    expect(() => verifySignedReport(future.value, future.publicKey, new Date(report.issuedAt)))
+      .toThrowError(ReporterVerificationError)
+  })
 })

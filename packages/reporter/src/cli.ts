@@ -95,13 +95,35 @@ async function openBrowser(url: string): Promise<void> {
   const [command, args] = process.platform === 'darwin'
     ? ['open', [url]]
     : process.platform === 'win32'
-      ? ['cmd', ['/c', 'start', '', url]]
+      // rundll32 avoids cmd.exe entirely: `cmd /c start` parses its arguments
+      // through shell metacharacters, so a hostile URL could inject commands.
+      ? ['rundll32', ['url.dll,FileProtocolHandler', url]]
       : ['xdg-open', [url]]
   await new Promise<void>((resolve) => {
     const child = spawn(command, args, { detached: true, stdio: 'ignore' })
     child.once('error', () => resolve())
     child.once('spawn', () => { child.unref(); resolve() })
   })
+}
+
+// The verification URL comes from the API response. Only ever launch a URL
+// that points at the same host we are already talking to over HTTPS —
+// anything else is either a compromised/malicious API or a phishing redirect,
+// and it never gets handed to the OS launcher (the user can still open the
+// printed URL manually).
+export function isSafeVerificationUrl(verificationUrl: string, apiBaseUrl: string): boolean {
+  try {
+    const target = new URL(verificationUrl)
+    const base = new URL(apiBaseUrl)
+    if (target.protocol !== 'https:' && !isLocalHost(target.hostname)) return false
+    return target.hostname === base.hostname
+  } catch {
+    return false
+  }
+}
+
+function isLocalHost(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
 }
 
 const defaultDependencies: CliDependencies = {
@@ -159,7 +181,17 @@ async function connect(
   deps: CliDependencies,
   currentAggregateApproved = false,
 ): Promise<ReporterConfig | null> {
-  let pending = await deps.loadPendingLink()
+  let pending: PendingReporterLink | null = null
+  try {
+    pending = await deps.loadPendingLink()
+  } catch (error) {
+    // A corrupt pending-link file used to brick `connect` forever with no CLI
+    // command able to clear it. Discard the corrupt state and start a fresh
+    // link; nothing of value is lost (the old identity was never approved).
+    if (!(error instanceof ReporterConfigError)) throw error
+    deps.stderr('Stored link request was unreadable; starting a fresh one.')
+    await deps.removePendingLink()
+  }
   if (pending && Date.parse(pending.expiresAt) <= deps.now().getTime()) {
     await deps.removePendingLink()
     pending = null
@@ -198,7 +230,11 @@ async function connect(
 
   deps.stdout(`Verification code: ${pending.userCode}`)
   deps.stdout(`Approve this machine: ${pending.verificationUrl}`)
-  await deps.openBrowser(pending.verificationUrl)
+  if (isSafeVerificationUrl(pending.verificationUrl, pending.apiBaseUrl)) {
+    await deps.openBrowser(pending.verificationUrl)
+  } else {
+    deps.stderr('The server returned an unexpected verification URL; open it manually if it looks right.')
+  }
 
   const interval = pending.interval
   const expiresIn = Math.max(0, Math.ceil(

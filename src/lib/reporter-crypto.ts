@@ -7,9 +7,17 @@ const MAX_TOKENS = 10_000_000_000
 const MAX_SESSIONS = 100_000
 const MAX_COST_USD = 100_000
 
+// Reporters stamp their machine-local calendar day, which can legitimately be
+// one day ahead of UTC. Anything further in the future is rejected so
+// fabricated rows cannot enter all-time aggregates.
+const MAX_DAY_AHEAD_MS = 24 * 60 * 60 * 1000
+
 const calendarDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
   const parsed = new Date(`${value}T00:00:00.000Z`)
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
+}, 'Invalid calendar day').refine((value) => {
+  const maxDay = new Date(Date.now() + MAX_DAY_AHEAD_MS).toISOString().slice(0, 10)
+  return value <= maxDay
 }, 'Invalid calendar day')
 
 export const reporterUsageRowSchema = z.object({
