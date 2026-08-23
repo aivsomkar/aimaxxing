@@ -44,11 +44,31 @@ function groupShare(rows: BurnRow[], key: (r: BurnRow) => string) {
 // be defensible market-share data.
 const isPlaceholderModel = (model: string) => /^<.*>$/.test(model.trim())
 
+/** Anything below this share is legend noise rather than signal. */
+export const OTHER_THRESHOLD = 0.01
+export const OTHER_LABEL = 'other'
+
+type Grouped = { key: string; costUsd: number; share: number }
+
+// Collapse the long tail into a single bucket so the legend stays readable.
+// Only collapses when it actually shortens the list: folding a lone sub-threshold
+// entry into "other" would hide its name without saving a row.
+function collapseTail(groups: Grouped[]): Grouped[] {
+  const small = groups.filter((g) => g.share < OTHER_THRESHOLD)
+  if (small.length < 2) return groups
+
+  const large = groups.filter((g) => g.share >= OTHER_THRESHOLD)
+  const costUsd = small.reduce((a, g) => a + g.costUsd, 0)
+  const share = small.reduce((a, g) => a + g.share, 0)
+  return [...large, { key: OTHER_LABEL, costUsd, share }]
+}
+
 export function shareByModel(rows: BurnRow[]) {
-  return groupShare(rows.filter((r) => !isPlaceholderModel(r.model)), (r) => r.model)
+  return collapseTail(groupShare(rows.filter((r) => !isPlaceholderModel(r.model)), (r) => r.model))
     .map(({ key, costUsd, share }) => ({ model: key, costUsd, share }))
 }
 
 export function shareByTool(rows: BurnRow[]) {
-  return groupShare(rows, (r) => r.tool).map(({ key, costUsd, share }) => ({ tool: key, costUsd, share }))
+  return collapseTail(groupShare(rows, (r) => r.tool))
+    .map(({ key, costUsd, share }) => ({ tool: key, costUsd, share }))
 }
