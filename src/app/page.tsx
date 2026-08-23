@@ -2,6 +2,7 @@ import { LiveStatBar } from '@/components/LiveStatBar'
 import { CollectiveCounter } from '@/components/CollectiveCounter'
 import { ModelSplit } from '@/components/ModelSplit'
 import { BoardTabs } from '@/components/BoardTabs'
+import { JoinCta } from '@/components/JoinCta'
 import { PrivateProfileNotice } from '@/components/PrivateProfileNotice'
 import { getCollectiveSummary, getEntrants } from '@/lib/queries'
 import { loadPublicHomeData } from '@/lib/home-data'
@@ -63,6 +64,8 @@ export default async function Home() {
             },
           ]}
         />
+
+        <JoinCta />
       </main>
     </>
   )
